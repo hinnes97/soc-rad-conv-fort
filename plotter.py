@@ -2,18 +2,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 sig = 5.67e-8
-for i in range(9999,10000):
-    with open('data/state_fluxes_'+str(i)+'.csv') as fh:
-        data = np.genfromtxt(fh)
-        print(data.shape)
-        pe = data[:,0]
-        fup = data[:,2]
-        fd = data[:,3]
-        sd = data[:,4]
-    with open('data/state_'+str(i)+'.csv') as fh:
-        data = np.genfromtxt(fh)
-        p = data[:,0]
-        T = data[:,1]
+#for i in range(29,30):
+with open('data/state_fluxes_FINAL'+'.csv') as fh:
+    data = np.genfromtxt(fh)
+    print(data.shape)
+    pe = data[:,0]
+    fup = data[:,2]
+    fd = data[:,3]
+    sd = data[:,4]
+with open('data/state_FINAL.csv') as fh:
+    data = np.genfromtxt(fh)
+    p = data[:,0]
+    T = data[:,1]
         
 
 

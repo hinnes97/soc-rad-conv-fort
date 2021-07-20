@@ -59,7 +59,7 @@ class atmos:
         return  self.s_down + self.f_down - self.f_up + self.Fint
 
     def calc_jacobian(self):
-        dT = 1 # Lower this for more accuracy?
+        dT = 0.1 # Lower this for more accuracy?
 
         jacob = np.zeros((self.Ne, self.Ne))
 
@@ -81,46 +81,54 @@ class atmos:
 
     def update_state(self):
         max_dT = 5
-        #self.calc_jacobian()
-        #plt.imshow(np.log(np.absolute(self.jacob)))
-        #plt.show()
-        #self.dT = np.linalg.solve(self.jacob, -self.R)
+        self.calc_jacobian()
+        self.dT = np.linalg.solve(self.jacob, -self.R)
+
+        # Smooth dT
+        #self.dT[1:-1] = 0.25*self.dT[:-2] + 0.5*self.dT[1:-1] + 0.25*self.dT[2:]
+        
         # Limit magnitude of dT
-        #print(self.dT)
-        const = 0.1
-        self.R = self.calc_residual(self.Te)
+        self.dT[self.dT>5] = max_dT
+        self.dT[self.dT<-5] = -max_dT
+        print(self.R)
 
-        #plt.semilogy(self.f_up, self.pe)
-        #plt.semilogy(self.f_down, self.pe)
-        #plt.semilogy(self.s_down,self.pe)
-        #plt.semilogy(self.R, self.pe)
-        #plt.gca().invert_yaxis()
-        #plt.show()
+        self.T += self.dT
+        #self.T[1:-1] = 0.25*self.T[:-2] + 0.5*self.T[1:-1] + 0.25*self.T[2:]
+
+        self.T[self.T<150] = 150
+        self.Tf  = self.T[1:]
+
+        self.Te = self.interp_to_edge(self.T, self.p, self.pe)
+
+        #### Below for timestepping version
+        #max_dT = 5
+        #const = 0.1
+        #self.R = self.calc_residual(self.Te)
+        #
+        #self.dT = -(self.R[1:] - self.R[:-1])*const
+        #
+        #self.dT[self.dT>max_dT] = max_dT
+        #self.dT[self.dT<-max_dT] = -max_dT
+        #
+        #self.R = self.calc_residual(self.interp_to_edge(self.Tf+0.5*self.dT,self.pf, self.pe))
+        #
+        #self.dT = -(self.R[1:] - self.R[:-1])*const
+        #        
+        #self.dT[self.dT>max_dT] = max_dT
+        #self.dT[self.dT<-max_dT] = -max_dT
+        #
+        #self.Tf += self.dT
+        #self.Te = self.interp_to_edge(self.Tf, self.pf, self.pe)
+        #
+        #print(np.amax(np.absolute(self.dT)), np.amax(np.absolute(self.R)))
         
-        self.dT = -(self.R[1:] - self.R[:-1])*const
-        
-        self.dT[self.dT>max_dT] = max_dT
-        self.dT[self.dT<-max_dT] = -max_dT
-        
-        self.R = self.calc_residual(self.interp_to_edge(self.Tf+0.5*self.dT,self.pf, self.pe))
-
-        self.dT = -(self.R[1:] - self.R[:-1])*const
-                
-        self.dT[self.dT>max_dT] = max_dT
-        self.dT[self.dT<-max_dT] = -max_dT
-
-        self.Tf += self.dT
-        self.Te = self.interp_to_edge(self.Tf, self.pf, self.pe)
-
-        print(np.amax(np.absolute(self.dT)), np.amax(np.absolute(self.R)))
-        #self.Tf  = self.T[1:]
 
     def dump_state(self, path, stamp):
 
         # Save state at one timestamp into one file
         with open(path+"_"+stamp+".csv", 'wb') as fh:
             #np.savetxt(fh, np.transpose([self.p, self.T, self.dT, self.R, self.Te]))
-            np.savetxt(fh, np.transpose([self.pf, self.Tf, self.dT]))
+            np.savetxt(fh, np.transpose([self.pf, self.Tf]))
 
         with open(path+'_fluxes_'+stamp+'.csv', 'wb') as fh:
             np.savetxt(fh, np.transpose([self.pe, self.Te, self.f_up, self.f_down, self.s_down]))
@@ -130,13 +138,19 @@ class atmos:
             #self.calc_residual(self.Te)
             self.dump_state(path, str(i))
             self.update_state()        
-
+            
+        self.T[1:-1] = 0.25*self.T[:-2] + 0.5*self.T[1:-1] + 0.25*self.T[2:]
+        self.T[0] = 0.75*self.T[0]+0.25*self.T[1]
+        self.T[-1] = 0.75*self.T[-1] + 0.25*self.T[-2]
+        self.dump_state(path, 'FINAL')
+        
+        
 if __name__ == '__main__':
     pt = 1e1
     ps = 1e5
     Ne = 100
 
-    pp = np.logspace(1,5,99)
+    pp = np.logspace(1,5,Ne-1)
     def analytic(p, taulwinf,tauswinf):
         tau = taulwinf*(p/p[-1])
         gamma = tauswinf/taulwinf
@@ -146,7 +160,7 @@ if __name__ == '__main__':
         return (test/2/rad.sig)**0.25
 
     #t_init = analytic(pp, 10,6)
-    t_init=300*np.ones(99)   
+    t_init=np.linspace(200,300,99)
     atm = atmos(pt, ps, Ne, t_init, 1368/4)
 
-    atm.run_to_equilib(10000, 'data/state')
+    atm.run_to_equilib(30, 'data/state')
