@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 sig = 5.67e-8
-for i in range(1):
+for i in range(9999,10000):
     with open('data/state_fluxes_'+str(i)+'.csv') as fh:
         data = np.genfromtxt(fh)
         print(data.shape)
@@ -38,7 +38,12 @@ gamma = 6/10
 S0=1368/4
 
 plt.semilogy(F_p(tau,gamma,S0), pe, F_m(tau,gamma,S0), pe, S0*np.exp(-gamma*tau), pe,  F_p(tau,gamma,S0)-F_m(tau,gamma,S0)-S0*np.exp(-gamma*tau), pe)
-plt.semilogy(fup, pe, fd, pe, sd, pe, fup-fd-sd,pe)
+
+plt.semilogy(fup, pe, fd, pe, sd, pe, fup-fd-sd,pe, ls = '--')
 plt.gca().invert_yaxis()
 
+plt.figure()
+plt.semilogy(T, p)
+plt.semilogy(analytic(p, 10, 6), p)
+plt.gca().invert_yaxis()
 plt.show()

@@ -13,7 +13,9 @@ import matplotlib.pyplot as plt
 
 # Below import your specific radiation/convection scheme
 #--------------------------------------------------------
-import short_char as rad
+#import short_char as rad
+import grey as rad
+import short_char as rad2
 
 class atmos:
     def __init__(self, p_top, p_s, Ne, T_init,S0):
@@ -27,6 +29,7 @@ class atmos:
         self.f_up=np.ones_like(self.pe)
         self.f_down=np.ones_like(self.pe)
         self.s_down = np.ones_like(self.pe)
+        
         # Define pf levels similaraly to FMS
         self.pf = (self.pe[1:] - self.pe[:-1])/(np.log(self.pe[1:]) - np.log(self.pe[:-1]))
         self.Te = self.interp_to_edge(self.Tf, self.pf, self.pe)
@@ -49,12 +52,10 @@ class atmos:
         return f(logpe)
 
     def calc_residual(self, T):
-        self.f_down = rad.ir_flux_down(T,self.pe)
-        self.f_up = rad.ir_flux_up(T,self.pe)
-        self.s_down = rad.sw_flux_down(self.S0, self.pe)
+        self.f_down = rad2.ir_flux_down(T,self.pe)
+        self.f_up = rad2.ir_flux_up(T,self.pe)
+        self.s_down = rad2.sw_flux_down(self.S0, self.pe)
 
-#        plt.show()
-        
         return  self.s_down + self.f_down - self.f_up + self.Fint
 
     def calc_jacobian(self):
@@ -86,15 +87,15 @@ class atmos:
         #self.dT = np.linalg.solve(self.jacob, -self.R)
         # Limit magnitude of dT
         #print(self.dT)
-        const = 0.001
+        const = 0.1
         self.R = self.calc_residual(self.Te)
 
-        plt.semilogy(self.f_up, self.pe)
-        plt.semilogy(self.f_down, self.pe)
-        plt.semilogy(self.s_down,self.pe)
-        plt.semilogy(self.R, self.pe)
-        plt.gca().invert_yaxis()
-        plt.show()
+        #plt.semilogy(self.f_up, self.pe)
+        #plt.semilogy(self.f_down, self.pe)
+        #plt.semilogy(self.s_down,self.pe)
+        #plt.semilogy(self.R, self.pe)
+        #plt.gca().invert_yaxis()
+        #plt.show()
         
         self.dT = -(self.R[1:] - self.R[:-1])*const
         
@@ -110,6 +111,8 @@ class atmos:
 
         self.Tf += self.dT
         self.Te = self.interp_to_edge(self.Tf, self.pf, self.pe)
+
+        print(np.amax(np.absolute(self.dT)), np.amax(np.absolute(self.R)))
         #self.Tf  = self.T[1:]
 
     def dump_state(self, path, stamp):
@@ -124,16 +127,16 @@ class atmos:
                         
     def run_to_equilib(self, m, path):
         for i in range(m):
-            self.calc_residual(self.Te)
+            #self.calc_residual(self.Te)
             self.dump_state(path, str(i))
             self.update_state()        
 
 if __name__ == '__main__':
-    pt = 1e3
+    pt = 1e1
     ps = 1e5
     Ne = 100
 
-    pp = np.logspace(0,5,99)
+    pp = np.logspace(1,5,99)
     def analytic(p, taulwinf,tauswinf):
         tau = taulwinf*(p/p[-1])
         gamma = tauswinf/taulwinf
@@ -142,8 +145,8 @@ if __name__ == '__main__':
         test = S0*(1+1/gamma + (gamma-1/gamma)*np.exp(-gamma*tau))
         return (test/2/rad.sig)**0.25
 
-    t_init = analytic(pp, 10,6)
-        
+    #t_init = analytic(pp, 10,6)
+    t_init=300*np.ones(99)   
     atm = atmos(pt, ps, Ne, t_init, 1368/4)
 
-    atm.run_to_equilib(1, 'data/state')
+    atm.run_to_equilib(10000, 'data/state')

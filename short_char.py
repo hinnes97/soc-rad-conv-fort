@@ -18,10 +18,10 @@ def ir_flux_down(Te, pe):
 
     # Parabolic for every term but last (linear)
     dI_m = np.zeros((len(I_m) - 1))
-    dI_m = lc.a_m*S[:-1] + lc.b_m*S[1:]
+    #dI_m = lc.a_m*S[:-1] + lc.b_m*S[1:]
     
-    #dI_m[:-1] = pc.a_m*S[:-2] + pc.b_m*S[1:-1] + pc.g_m*S[2:]
-    #dI_m[-1] = lc.a_m[-1]*S[-2] + lc.b_m[-1]*S[-1]
+    dI_m[:-1] = pc.a_m*S[:-2] + pc.b_m*S[1:-1] + pc.g_m*S[2:]
+    dI_m[-1] = lc.a_m[-1]*S[-2] + lc.b_m[-1]*S[-1]
     
     for k in range(1,len(I_m)):
         I_m[k] = I_m[k-1]*np.exp(-dtau[k-1]) + dI_m[k-1]
@@ -42,10 +42,10 @@ def ir_flux_up(Te, pe):
     I_p[-1] = S[-1]
 
     dI_p = np.zeros((len(I_p) - 1))
-    dI_p = lc.b_p*S[:-1] + lc.g_p*S[1:]
+    #dI_p = lc.b_p*S[:-1] + lc.g_p*S[1:]
     
-    #dI_p[1:] = pc.a_m*S[:-2]+ pc.b_m*S[1:-1] + pc.g_m*S[2:]
-    #dI_p[0] = lc.a_m[0]*S[0] + lc.b_m[0]*S[1]
+    dI_p[1:] = pc.a_p*S[:-2]+ pc.b_p*S[1:-1] + pc.g_p*S[2:]
+    dI_p[0] = lc.b_p[0]*S[0] + lc.g_p[0]*S[1]
 
     for k in range(len(I_p)-2,-1,-1):
         I_p[k] = I_p[k+1]*np.exp(-dtau[k]) + dI_p[k]
