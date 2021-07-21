@@ -1,8 +1,8 @@
 import numpy as np
 
 sig = 5.670374419e-8
-taulwinf = 10
-tauswinf = 6
+taulwinf = 256
+tauswinf = 256*0.04
 
 def ir_flux_down(Te, pe):
     
@@ -57,7 +57,8 @@ def sw_flux_down(S0, p):
     return S0*np.exp(-tau_sw)
 
 def ir_tau(p, tauinf):
-    return tauinf*(p/p[-1])
+    f = 0
+    return tauinf*((1-f)*(p/p[-1]) + f*(p/p[-1])**2)
 
 def sw_tau(p, tauinf):
     return tauinf*(p/p[-1])

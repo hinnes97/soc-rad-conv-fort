@@ -13,9 +13,8 @@ import matplotlib.pyplot as plt
 
 # Below import your specific radiation/convection scheme
 #--------------------------------------------------------
-#import short_char as rad
-import grey as rad
-import short_char as rad2
+#import grey as rad
+import short_char as rad
 
 class atmos:
     def __init__(self, p_top, p_s, Ne, T_init,S0):
@@ -40,6 +39,8 @@ class atmos:
         self.dT = np.zeros_like(self.Tf)
         self.R = np.zeros_like(self.T)
 
+        self.N0=None
+
     def interp_to_edge(self,Tf, pf, pe):
 
         Te = np.zeros(self.Ne)
@@ -52,37 +53,40 @@ class atmos:
         return f(logpe)
 
     def calc_residual(self, T):
-        self.f_down = rad2.ir_flux_down(T,self.pe)
-        self.f_up = rad2.ir_flux_up(T,self.pe)
-        self.s_down = rad2.sw_flux_down(self.S0, self.pe)
+        self.f_down[:self.N0] = rad.ir_flux_down(T,self.pe[:self.N0])
+        self.f_up[:self.N0] = rad.ir_flux_up(T,self.pe[:self.N0])
+        self.s_down[:self.N0] = rad.sw_flux_down(self.S0, self.pe[:self.N0])
 
-        return  self.s_down + self.f_down - self.f_up + self.Fint
+        return  self.s_down[:self.N0] + self.f_down[:self.N0] - self.f_up[:self.N0] + self.Fint
 
     def calc_jacobian(self):
-        dT = 0.1 # Lower this for more accuracy?
+        dT = 1 # Lower this for more accuracy?
 
-        jacob = np.zeros((self.Ne, self.Ne))
+        if not self.N0:
+            jacob = np.zeros((self.Ne, self.Ne))
+        else:
+            jacob = np.zeros((self.N0, self.N0))
 
         # Calculate residual
-        self.R = self.calc_residual(self.Te) 
+        self.R[:self.N0] = self.calc_residual(self.Te[:self.N0]) 
         
-        for j in range(self.Ne):
+        for j in range(len(jacob[0])):
             T_dash = np.copy(self.T)
 
             T_dash[j] += dT
 
             Te_dash = self.interp_to_edge(T_dash, self.p, self.pe)
 
-            Fdash_j = self.calc_residual(Te_dash)
+            Fdash_j = self.calc_residual(Te_dash[:self.N0])
             
-            jacob[:,j] = (Fdash_j - self.R)/dT
+            jacob[:,j] = (Fdash_j - self.R[self.N0])/dT
 
         self.jacob = jacob
 
     def update_state(self):
         max_dT = 5
         self.calc_jacobian()
-        self.dT = np.linalg.solve(self.jacob, -self.R)
+        self.dT = np.linalg.solve(self.jacob, -self.R[:self.N0])
 
         # Smooth dT
         #self.dT[1:-1] = 0.25*self.dT[:-2] + 0.5*self.dT[1:-1] + 0.25*self.dT[2:]
@@ -90,10 +94,9 @@ class atmos:
         # Limit magnitude of dT
         self.dT[self.dT>5] = max_dT
         self.dT[self.dT<-5] = -max_dT
-        print(self.R)
+        print(f'Max residual = {np.amax(np.absolute(self.R)):.2e} W/m^2')
 
-        self.T += self.dT
-        #self.T[1:-1] = 0.25*self.T[:-2] + 0.5*self.T[1:-1] + 0.25*self.T[2:]
+        self.T[:self.N0] += self.dT
 
         self.T[self.T<150] = 150
         self.Tf  = self.T[1:]
@@ -121,33 +124,58 @@ class atmos:
         #self.Te = self.interp_to_edge(self.Tf, self.pf, self.pe)
         #
         #print(np.amax(np.absolute(self.dT)), np.amax(np.absolute(self.R)))
-        
 
+    # Note convective adjustment is NOT working at the moment
+    def dry_adjust(self):
+        Rcp=2/7
+        dlnT = np.log(self.T)
+        dlnp = np.log(self.p)
+
+        grad = np.gradient(dlnT, dlnp)
+        if self.N0 != None:
+            grad[self.N0+1:] += 0.001
+
+        self.N0=None
+        for k in range(self.Ne):
+            if np.all(grad[k:-1]> Rcp):
+                self.N0=k
+                break
+
+        self.T[self.N0:] = self.T[self.N0]*(self.p[self.N0:]/self.p[self.N0])**Rcp
+        self.Te = self.interp_to_edge(self.T, self.p, self.pe)
+                                
     def dump_state(self, path, stamp):
 
         # Save state at one timestamp into one file
         with open(path+"_"+stamp+".csv", 'wb') as fh:
-            #np.savetxt(fh, np.transpose([self.p, self.T, self.dT, self.R, self.Te]))
             np.savetxt(fh, np.transpose([self.pf, self.Tf]))
 
         with open(path+'_fluxes_'+stamp+'.csv', 'wb') as fh:
             np.savetxt(fh, np.transpose([self.pe, self.Te, self.f_up, self.f_down, self.s_down]))
                         
-    def run_to_equilib(self, m, path):
-        for i in range(m):
-            #self.calc_residual(self.Te)
-            self.dump_state(path, str(i))
-            self.update_state()        
+    def run_to_equilib(self, m, n, path):
+        for j in range(n):
+            for i in range(m):
+                #self.calc_residual(self.Te)
+                self.dump_state(path, str(i))
+                self.update_state()
+                if np.amax(np.absolute(self.R[:self.N0]))<1e-10:
+                    break
             
-        self.T[1:-1] = 0.25*self.T[:-2] + 0.5*self.T[1:-1] + 0.25*self.T[2:]
-        self.T[0] = 0.75*self.T[0]+0.25*self.T[1]
-        self.T[-1] = 0.75*self.T[-1] + 0.25*self.T[-2]
-        self.dump_state(path, 'FINAL')
+            self.T[1:-1] = 0.25*self.T[:-2] + 0.5*self.T[1:-1] + 0.25*self.T[2:]
+            self.T[0] = 0.75*self.T[0]+0.25*self.T[1]
+            #self.T[-1] = 0.75*self.T[-1] + 0.25*self.T[-2]
+
+            #self.dry_adjust()
+            #print(self.N0)
+            #print(self.R[:self.N0])
+        
+        self.dump_state(path, 'FINAL_noadj')
         
         
 if __name__ == '__main__':
-    pt = 1e1
-    ps = 1e5
+    pt = 1e2
+    ps = 1e6
     Ne = 100
 
     pp = np.logspace(1,5,Ne-1)
@@ -160,7 +188,7 @@ if __name__ == '__main__':
         return (test/2/rad.sig)**0.25
 
     #t_init = analytic(pp, 10,6)
-    t_init=np.linspace(200,300,99)
+    t_init=np.linspace(200,400,99)
     atm = atmos(pt, ps, Ne, t_init, 1368/4)
 
-    atm.run_to_equilib(30, 'data/state')
+    atm.run_to_equilib(100, 5, 'data/state')
