@@ -3,6 +3,7 @@ import numpy as np
 sig = 5.670374419e-8
 taulwinf = 256
 tauswinf = 256*0.04
+ps = 1e6
 
 def ir_flux_down(Te, pe):
     
@@ -57,11 +58,11 @@ def sw_flux_down(S0, p):
     return S0*np.exp(-tau_sw)
 
 def ir_tau(p, tauinf):
-    f = 0
-    return tauinf*((1-f)*(p/p[-1]) + f*(p/p[-1])**2)
+    f = 0 # To test dry_adj put f=0.9, Fint = 100
+    return (tauinf*((1-f)*(p/ps) + f*(p/ps)**2))[:]
 
 def sw_tau(p, tauinf):
-    return tauinf*(p/p[-1])
+    return tauinf*(p/ps)[:]
     
 class linear_coeff:
     def __init__(self, dtau):

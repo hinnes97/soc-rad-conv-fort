@@ -24,7 +24,7 @@ class atmos:
         self.Nf = Ne - 1
 
         self.S0 = S0
-        self.Fint =0# rad.sig*80**4
+        self.Fint =0 #Use 100 to test convective adjustment
         self.f_up=np.ones_like(self.pe)
         self.f_down=np.ones_like(self.pe)
         self.s_down = np.ones_like(self.pe)
@@ -37,24 +37,33 @@ class atmos:
         self.T = np.concatenate((self.Te[0], self.Tf), axis=None)
         self.p = np.concatenate((self.pe[0], self.pf), axis=None)
         self.dT = np.zeros_like(self.Tf)
-        self.R = np.zeros_like(self.T)
-
+        
+        # Convection
         self.N0=None
+        self.Rcp = 2/7
 
+        # Initialise residual
+        self.R = self.calc_residual(self.Te)
+        
     def interp_to_edge(self,Tf, pf, pe):
 
         Te = np.zeros(self.Ne)
 
         logpf = np.log(pf)
         logpe = np.log(pe)
-        
-        f = spi.CubicSpline(logpf, Tf, extrapolate=True)#, fill_value="extrapolate")
+       
+        f = spi.CubicSpline(logpf, Tf, extrapolate=True)
 
         return f(logpe)
 
     def calc_residual(self, T):
-        self.f_down[:self.N0] = rad.ir_flux_down(T,self.pe[:self.N0])
-        self.f_up[:self.N0] = rad.ir_flux_up(T,self.pe[:self.N0])
+        self.f_down[:self.N0] = rad.ir_flux_down(T[:self.N0],self.pe[:self.N0])
+
+        # Need to calculate all f_up even if N0!=None, because need upwards flux boundary
+        # condition from bottom of the convective layer
+
+        self.f_up = rad.ir_flux_up(T,self.pe)
+        
         self.s_down[:self.N0] = rad.sw_flux_down(self.S0, self.pe[:self.N0])
 
         return  self.s_down[:self.N0] + self.f_down[:self.N0] - self.f_up[:self.N0] + self.Fint
@@ -62,24 +71,26 @@ class atmos:
     def calc_jacobian(self):
         dT = 1 # Lower this for more accuracy?
 
-        if not self.N0:
+        if self.N0 == None:
             jacob = np.zeros((self.Ne, self.Ne))
         else:
             jacob = np.zeros((self.N0, self.N0))
 
-        # Calculate residual
-        self.R[:self.N0] = self.calc_residual(self.Te[:self.N0]) 
-        
         for j in range(len(jacob[0])):
             T_dash = np.copy(self.T)
 
             T_dash[j] += dT
 
+            # If perturbing adiabat layer, perturb all temps in troposphere
+            if self.N0 != None:
+                if j == self.N0-1:
+                    T_dash[j:] = T_dash[j]*(self.p[j:]/self.p[j])**self.Rcp
+                
             Te_dash = self.interp_to_edge(T_dash, self.p, self.pe)
 
-            Fdash_j = self.calc_residual(Te_dash[:self.N0])
+            Fdash_j = self.calc_residual(Te_dash)
             
-            jacob[:,j] = (Fdash_j - self.R[self.N0])/dT
+            jacob[:,j] = (Fdash_j - self.R[:self.N0])/dT
 
         self.jacob = jacob
 
@@ -87,22 +98,31 @@ class atmos:
         max_dT = 5
         self.calc_jacobian()
         self.dT = np.linalg.solve(self.jacob, -self.R[:self.N0])
-
         # Smooth dT
         #self.dT[1:-1] = 0.25*self.dT[:-2] + 0.5*self.dT[1:-1] + 0.25*self.dT[2:]
         
         # Limit magnitude of dT
         self.dT[self.dT>5] = max_dT
         self.dT[self.dT<-5] = -max_dT
-        print(f'Max residual = {np.amax(np.absolute(self.R)):.2e} W/m^2')
+        #print(self.dT)
 
         self.T[:self.N0] += self.dT
+
+        # Matrix inversion done assuming temperature in troposphere changes with temp at N0 level
+        if self.N0 != None:
+            k = self.N0-1
+            self.T[k:] = self.T[k]*(self.p[k:]/self.p[k])**self.Rcp
+
 
         self.T[self.T<150] = 150
         self.Tf  = self.T[1:]
 
         self.Te = self.interp_to_edge(self.T, self.p, self.pe)
 
+        # Calculate residual
+        self.R[:self.N0] = self.calc_residual(self.Te) 
+
+        print(f'Max residual = {np.amax(np.absolute(self.R)):.2e} W/m^2')
         #### Below for timestepping version
         #max_dT = 5
         #const = 0.1
@@ -125,23 +145,21 @@ class atmos:
         #
         #print(np.amax(np.absolute(self.dT)), np.amax(np.absolute(self.R)))
 
-    # Note convective adjustment is NOT working at the moment
     def dry_adjust(self):
-        Rcp=2/7
         dlnT = np.log(self.T)
         dlnp = np.log(self.p)
 
         grad = np.gradient(dlnT, dlnp)
         if self.N0 != None:
-            grad[self.N0+1:] += 0.001
+            grad[self.N0:] += 0.001
 
         self.N0=None
         for k in range(self.Ne):
-            if np.all(grad[k:-1]> Rcp):
-                self.N0=k
+            if np.all(grad[k:-1]> self.Rcp):
+                self.N0=k+1
+                self.T[k:] = self.T[k]*(self.p[k:]/self.p[k])**self.Rcp
                 break
-
-        self.T[self.N0:] = self.T[self.N0]*(self.p[self.N0:]/self.p[self.N0])**Rcp
+        
         self.Te = self.interp_to_edge(self.T, self.p, self.pe)
                                 
     def dump_state(self, path, stamp):
@@ -155,6 +173,7 @@ class atmos:
                         
     def run_to_equilib(self, m, n, path):
         for j in range(n):
+            print(f'n = {j} -------------------------------')
             for i in range(m):
                 #self.calc_residual(self.Te)
                 self.dump_state(path, str(i))
@@ -166,11 +185,8 @@ class atmos:
             self.T[0] = 0.75*self.T[0]+0.25*self.T[1]
             #self.T[-1] = 0.75*self.T[-1] + 0.25*self.T[-2]
 
-            #self.dry_adjust()
-            #print(self.N0)
-            #print(self.R[:self.N0])
-        
-        self.dump_state(path, 'FINAL_noadj')
+            self.dry_adjust()
+        self.dump_state(path, 'FINAL')
         
         
 if __name__ == '__main__':
@@ -178,6 +194,8 @@ if __name__ == '__main__':
     ps = 1e6
     Ne = 100
 
+
+    
     pp = np.logspace(1,5,Ne-1)
     def analytic(p, taulwinf,tauswinf):
         tau = taulwinf*(p/p[-1])
@@ -188,7 +206,7 @@ if __name__ == '__main__':
         return (test/2/rad.sig)**0.25
 
     #t_init = analytic(pp, 10,6)
-    t_init=np.linspace(200,400,99)
+    t_init=np.linspace(200,400,Ne-1)
     atm = atmos(pt, ps, Ne, t_init, 1368/4)
 
     atm.run_to_equilib(100, 5, 'data/state')
