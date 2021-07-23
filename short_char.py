@@ -58,7 +58,7 @@ def sw_flux_down(S0, p):
     return S0*np.exp(-tau_sw)
 
 def ir_tau(p, tauinf):
-    f = 0 # To test dry_adj put f=0.9, Fint = 100
+    f = 0.9 # To test dry_adj put f=0.9, Fint = 100
     return (tauinf*((1-f)*(p/ps) + f*(p/ps)**2))[:]
 
 def sw_tau(p, tauinf):

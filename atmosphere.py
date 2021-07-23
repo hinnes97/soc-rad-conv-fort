@@ -15,6 +15,10 @@ import matplotlib.pyplot as plt
 #--------------------------------------------------------
 #import grey as rad
 import short_char as rad
+import moistad as ma
+import convection as conv
+import phys
+
 
 class atmos:
     def __init__(self, p_top, p_s, Ne, T_init,S0):
@@ -22,9 +26,11 @@ class atmos:
         self.Tf = T_init
         self.Ne = Ne
         self.Nf = Ne - 1
+        dp = np.diff(self.pe)
+        self.dp = np.r_[dp[0], dp]
 
         self.S0 = S0
-        self.Fint =0 #Use 100 to test convective adjustment
+        self.Fint =100 #Use 100 to test convective adjustment
         self.f_up=np.ones_like(self.pe)
         self.f_down=np.ones_like(self.pe)
         self.s_down = np.ones_like(self.pe)
@@ -41,7 +47,18 @@ class atmos:
         # Convection
         self.N0=None
         self.Rcp = 2/7
+        self.dry = phys.H2
+        self.wet = phys.H2O
 
+        self.dry_mask = np.full(len(self.T), False)
+        self.wet_mask = np.full(len(self.T), False)
+
+        #Moisture
+        self.q0 = 0.1
+        self.qsat = ma.satq(self.T, self.p, self.dry, self.wet)
+        self.q = np.minimum(self.q0, self.qsat)
+        self.q = conv.cold_trap(self.T, self.p, self.q)[1]
+        
         # Initialise residual
         self.R = self.calc_residual(self.Te)
         
@@ -57,62 +74,68 @@ class atmos:
         return f(logpe)
 
     def calc_residual(self, T):
-        self.f_down[:self.N0] = rad.ir_flux_down(T[:self.N0],self.pe[:self.N0])
+        self.f_down = rad.ir_flux_down(T,self.pe)
 
         # Need to calculate all f_up even if N0!=None, because need upwards flux boundary
         # condition from bottom of the convective layer
 
         self.f_up = rad.ir_flux_up(T,self.pe)
         
-        self.s_down[:self.N0] = rad.sw_flux_down(self.S0, self.pe[:self.N0])
+        self.s_down = rad.sw_flux_down(self.S0, self.pe)
 
-        return  self.s_down[:self.N0] + self.f_down[:self.N0] - self.f_up[:self.N0] + self.Fint
+        return  self.s_down + self.f_down - self.f_up + self.Fint
 
     def calc_jacobian(self):
         dT = 1 # Lower this for more accuracy?
 
-        if self.N0 == None:
-            jacob = np.zeros((self.Ne, self.Ne))
-        else:
-            jacob = np.zeros((self.N0, self.N0))
+        # Calculate regions we actually want to do radiation on (exclude adiabats), but
+        # include beginning of adiabatic regions so that region can grow/shrink
+        
+        dry_blocks = conv.start_stop(self.dry_mask, True)
+        wet_blocks = conv.start_stop(self.wet_mask, True)
 
-        for j in range(len(jacob[0])):
+        new_dry_mask = np.copy(self.dry_mask)
+        new_wet_mask = np.copy(self.wet_mask)
+        
+        for m,n in dry_blocks:
+            new_dry_mask[m] = False
+        for m,n in wet_blocks:
+            new_wet_mask[m] = False
+
+        rad_mask = ~(new_dry_mask | new_wet_mask)
+        len_rad = np.sum(rad_mask)
+
+        jacob = np.zeros((len_rad, len_rad))
+        dummy_q = np.zeros_like(self.q)
+        
+        for i,j in enumerate(np.arange(self.Ne)[rad_mask]):#range(len(jacob[0])):
             T_dash = np.copy(self.T)
-
             T_dash[j] += dT
 
-            # If perturbing adiabat layer, perturb all temps in troposphere
-            if self.N0 != None:
-                if j == self.N0-1:
-                    T_dash[j:] = T_dash[j]*(self.p[j:]/self.p[j])**self.Rcp
-                
+            # Currently deciding against changing temperatures below convective zone - reasoning
+            # that when temperature finally incremented we don't know for sure that the convective
+            # adjustment will cause the levels below it to also change (i.e. convective layer could
+            # shrink -- see if it works
+            
             Te_dash = self.interp_to_edge(T_dash, self.p, self.pe)
 
-            Fdash_j = self.calc_residual(Te_dash)
+            Fdash_i = self.calc_residual(Te_dash)[rad_mask]
             
-            jacob[:,j] = (Fdash_j - self.R[:self.N0])/dT
+            jacob[:,i] = (Fdash_i - self.R[rad_mask])/dT
 
         self.jacob = jacob
+        self.rad_mask = rad_mask
 
     def update_state(self):
         max_dT = 5
         self.calc_jacobian()
-        self.dT = np.linalg.solve(self.jacob, -self.R[:self.N0])
-        # Smooth dT
-        #self.dT[1:-1] = 0.25*self.dT[:-2] + 0.5*self.dT[1:-1] + 0.25*self.dT[2:]
+        self.dT = np.linalg.solve(self.jacob, -self.R[self.rad_mask])
         
         # Limit magnitude of dT
         self.dT[self.dT>5] = max_dT
         self.dT[self.dT<-5] = -max_dT
-        #print(self.dT)
 
-        self.T[:self.N0] += self.dT
-
-        # Matrix inversion done assuming temperature in troposphere changes with temp at N0 level
-        if self.N0 != None:
-            k = self.N0-1
-            self.T[k:] = self.T[k]*(self.p[k:]/self.p[k])**self.Rcp
-
+        self.T[self.rad_mask] += self.dT
 
         self.T[self.T<150] = 150
         self.Tf  = self.T[1:]
@@ -120,9 +143,10 @@ class atmos:
         self.Te = self.interp_to_edge(self.T, self.p, self.pe)
 
         # Calculate residual
-        self.R[:self.N0] = self.calc_residual(self.Te) 
+        self.R[self.rad_mask] = self.calc_residual(self.Te)[self.rad_mask]
 
-        print(f'Max residual = {np.amax(np.absolute(self.R)):.2e} W/m^2')
+        print(f'Residual = {self.R[self.rad_mask]}')
+        #print(f'Max residual = {np.amax(np.absolute(self.R[self.rad_mask])):.2e} W/m^2')
         #### Below for timestepping version
         #max_dT = 5
         #const = 0.1
@@ -145,23 +169,6 @@ class atmos:
         #
         #print(np.amax(np.absolute(self.dT)), np.amax(np.absolute(self.R)))
 
-    def dry_adjust(self):
-        dlnT = np.log(self.T)
-        dlnp = np.log(self.p)
-
-        grad = np.gradient(dlnT, dlnp)
-        if self.N0 != None:
-            grad[self.N0:] += 0.001
-
-        self.N0=None
-        for k in range(self.Ne):
-            if np.all(grad[k:-1]> self.Rcp):
-                self.N0=k+1
-                self.T[k:] = self.T[k]*(self.p[k:]/self.p[k])**self.Rcp
-                break
-        
-        self.Te = self.interp_to_edge(self.T, self.p, self.pe)
-                                
     def dump_state(self, path, stamp):
 
         # Save state at one timestamp into one file
@@ -169,7 +176,8 @@ class atmos:
             np.savetxt(fh, np.transpose([self.pf, self.Tf]))
 
         with open(path+'_fluxes_'+stamp+'.csv', 'wb') as fh:
-            np.savetxt(fh, np.transpose([self.pe, self.Te, self.f_up, self.f_down, self.s_down]))
+            np.savetxt(fh, np.transpose([self.pe, self.Te, self.f_up, self.f_down, self.s_down,
+                                         self.q, self.dry_mask, self.wet_mask]))
                         
     def run_to_equilib(self, m, n, path):
         for j in range(n):
@@ -185,7 +193,15 @@ class atmos:
             self.T[0] = 0.75*self.T[0]+0.25*self.T[1]
             #self.T[-1] = 0.75*self.T[-1] + 0.25*self.T[-2]
 
-            self.dry_adjust()
+            # Perform moist and dry adjustment
+            #self.T, self.dry_mask = conv.dry_adjust(self.T, self.p, self.dry_mask)
+            #self.T, self.q, self.wet_mask = conv.moist_adjust(self.T, self.p, self.dp, self.q,
+            #                                                    self.wet_mask, whole_atm = True, n_iter=4)
+
+            self.Te = self.interp_to_edge(self.T, self.p, self.pe)
+            # If moist adjustment overwrites dry adjustment, adjust dry mask
+            self.dry_mask[self.wet_mask] = False
+            
         self.dump_state(path, 'FINAL')
         
         
@@ -200,13 +216,13 @@ if __name__ == '__main__':
     def analytic(p, taulwinf,tauswinf):
         tau = taulwinf*(p/p[-1])
         gamma = tauswinf/taulwinf
-        S0 = 1368/4
+        S0 = 1368/16
 
         test = S0*(1+1/gamma + (gamma-1/gamma)*np.exp(-gamma*tau))
         return (test/2/rad.sig)**0.25
 
     #t_init = analytic(pp, 10,6)
     t_init=np.linspace(200,400,Ne-1)
-    atm = atmos(pt, ps, Ne, t_init, 1368/4)
+    atm = atmos(pt, ps, Ne, t_init, 1368/16)
 
     atm.run_to_equilib(100, 5, 'data/state')
