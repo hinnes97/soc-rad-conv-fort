@@ -39,14 +39,11 @@ pe = np.logspace(1,5,100)
 pf = (pe[1:]-pe[:-1])/(np.log(pe[1:]) - np.log(pe[:-1]))
 dp = np.diff(pe)
 
-t = 280*(pf/pf[-1])**(3/7)
+t = 280*(pf/pf[-1])**(np.linspace(5/7,3/7, 99))
 q = np.zeros_like(t)
-wet_mask = np.full(len(t), False)
+dry_mask = np.full(len(t), False)
 
-tnew, qnew, wet_mask = conv.moist_adjust(t,pf, dp, q,wet_mask,whole_atm=True)
-
-print('NEW OUT', tnew)
-print('OLD OUT', t)
+tnew,  dry_mask = conv.dry_adjust(t,pf, dp, dry_mask)
 plt.loglog(tnew, pf)
 plt.loglog(t, pf)
 plt.gca().invert_yaxis()

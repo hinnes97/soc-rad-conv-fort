@@ -2,6 +2,7 @@ import numpy as np
 import phys
 import moistad as ma
 from scipy import signal
+import matplotlib.pyplot as plt
 
 dry = phys.H2
 wet = phys.H2O
@@ -18,35 +19,101 @@ def start_stop(a, trigger_val):
     # Get the start and end indices with slicing along the shifting ones
     return [x for x in zip(idx[::2], idx[1::2])]
 
-def dry_adjust(T, p, dry_mask):
+def dry_adjust(Tin, p, dp, dry_mask,n_iter=10):
+    
+    T = np.copy(Tin)
+    
+#     # Add small number to dry mask so that code notes regions already on adiabat
+#     new_mask = np.copy(dry_mask)
+#     dry_blocks = start_stop(dry_mask, True)
 
-    dlnT = np.log(T)
-    dlnp = np.log(p)
+#     for m,n in dry_blocks:
+#         new_mask[m] = False
 
-    grad = np.gradient(dlnT, dlnp)
+#     grad[new_mask] += 0.01
 
-    # Add small number to dry mask so that code notes regions already on adiabat
-    new_mask = np.copy(dry_mask)
-    dry_blocks = start_stop(dry_mask, True)
+#     # Ignore levels in the stratosphere
+#     nignore = 10
+#     for k in range(nignore,len(dlnT)-1):
+#         if grad[k] > Rcp:
+#             dry_mask[k:k+2] = True
+#             T[k+1] = T[k]*(p[k+1]/p[k])**Rcp
+#         else:
+#             dry_mask[k:k+2] = False
+# #            if np.all(grad[k:-1]> self.Rcp):
+# #                self.N0=k+1
+# #                self.T[k:] = self.T[k]*(self.p[k:]/self.p[k])**self.Rcp
+# #                break
 
-    for m,n in dry_blocks:
-        new_mask[m] = False
+    #Rcp is a global
+    #Downward pass
+    for n in range(n_iter):
+        for i in range(len(T)-1):
+            T1,p1,dp1 = T[i],p[i],dp[i]
+            T2,p2,dp2 = T[i+1],p[i+1],dp[i+1]
+            pfact = (p1/p2)**dry.Rcp
+            new_mask = np.copy(dry_mask)
+            dry_blocks = start_stop(dry_mask, True)
 
-    grad[new_mask] += 0.01
+            for m,n in dry_blocks:
+                new_mask[m] = False
 
-    for k in range(len(dlnT)-1):
-        if grad[k] > Rcp:
-            dry_mask[k:k+2] = True
-            T[k+1] = T[k]*(p[k+1]/p[k])**Rcp
-        else:
-            dry_mask[k:k+2] = False
-#            if np.all(grad[k:-1]> self.Rcp):
-#                self.N0=k+1
-#                self.T[k:] = self.T[k]*(self.p[k:]/self.p[k])**self.Rcp
-#                break
+            if new_mask[i] == True:
+                test = 1-0.01
+            else:
+                test = 1
+            
+            if test < T2*pfact/T1:
+                Tbar = (dp1*T1+dp2*T2)/(dp1+dp2) #Equal layer masses
+                                  #Not quite compatible with how
+                                  #heating is computed from flux
+                                  # FIXED 
+                T2 = (dp1+dp2)*Tbar/(dp2+dp1*pfact)
+                T1 = T2*pfact
+                T[i] = T1
+                T[i+1] = T2
+                dry_mask[i:i+2] = True
+            
+        #Upward pass
+        for i in range(len(T)-2,-1,-1):
+            T1,p1,dp1 = T[i],p[i],dp[i]
+            T2,p2,dp2 = T[i+1],p[i+1],dp[i+1]
+            pfact = (p1/p2)**dry.Rcp
+
+            new_mask = np.copy(dry_mask)
+            dry_blocks = start_stop(dry_mask, True)
+
+            for m,n in dry_blocks:
+                new_mask[m] = False
+
+            if new_mask[i] == True:
+                test = 1-0.01
+            else:
+                test = 1
+            
+            if test < T2*pfact/T1:
+                Tbar = (dp1*T1+dp2*T2)/(dp1+dp2) #Equal layer masses
+                                   #Not quite compatible with how
+                                   #heating is computed from flux
+                T2 = (dp1+dp2)*Tbar/(dp2+dp1*pfact)
+                T1 = T2*pfact
+                T[i] = T1
+                T[i+1] = T2
+                dry_mask[i:i+2] = True
+
+    #    plt.loglog(T, p)
+    #    plt.loglog(T[-1]*(p/p[-1])**(dry.Rcp), p)
+    #    plt.gca().invert_yaxis()
+    #    plt.show()
+        logT = np.log(T)
+        logp = np.log(p)
+        grad = np.gradient(logT, logp)
+
+#        dry_mask= np.isclose(grad, dry.Rcp, rtol=0.001)
+        #print(np.log(T[1:]/T[:-1])/np.log(p[1:]/p[-1:]) - dry.Rcp)
     return T, dry_mask
 
-def moist_adjust(Tin, p, dp, q, wet_mask, whole_atm=True, n_iter=1):
+def moist_adjust(Tin, p, dp, q, wet_mask, whole_atm=True, n_iter=10):
     T = np.copy(Tin)
 
     # If adjusting entire atmosphere, calculate cold trap. If not, we are doing as part of the
@@ -93,7 +160,6 @@ def moist_adjust(Tin, p, dp, q, wet_mask, whole_atm=True, n_iter=1):
                 else:
                     test = 1
 
-                print(T2*pfact/T1)
                 if test < T2*pfact/T1:
                     Tbar = (dp1*T1+dp2*T2)/(dp1+dp2) #Equal layer masses                    
                     T2 = (dp1+dp2)*Tbar/(dp2+dp1*pfact)
@@ -102,7 +168,7 @@ def moist_adjust(Tin, p, dp, q, wet_mask, whole_atm=True, n_iter=1):
                     T[k+1] = T2
                     q[k+1] = ma.satq(T2,p2, dry, wet)
                     q[k]   = ma.satq(T1,p1, dry, wet)
-
+                    
                     wet_mask[k:k+2] = True
                 else:
                     wet_mask[k:k+2] = False
@@ -143,8 +209,7 @@ def moist_adjust(Tin, p, dp, q, wet_mask, whole_atm=True, n_iter=1):
                     test = 1-0.01
                 else:
                     test = 1
-
-                print(T2*pfact/T1)
+                    
                 if test < T2*pfact/T1:
                     Tbar = (dp1*T1+dp2*T2)/(dp1+dp2) #Equal layer masses                    
                     T2 = (dp1+dp2)*Tbar/(dp2+dp1*pfact)
@@ -161,7 +226,13 @@ def moist_adjust(Tin, p, dp, q, wet_mask, whole_atm=True, n_iter=1):
                     q[k] = q0
                 if qsat2 > q0:
                     q[k+1] = q0
-                wet_mask[k:k+2] = False            
+                wet_mask[k:k+2] = False
+                
+    logT = np.log(T)
+    logp = np.log(p)
+    grad = np.gradient(logT, logp)
+
+#    wet_mask= np.isclose(grad, ma.dlntdlnp(logp, logT,dry,wet), rtol=0.001)
 
     return T, q, wet_mask
 

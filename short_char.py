@@ -1,13 +1,22 @@
 import numpy as np
+from moistad import satq
+import phys
 
 sig = 5.670374419e-8
 taulwinf = 256
 tauswinf = 256*0.04
 ps = 1e6
+Fint = 70
+dry = phys.H2
+wet = phys.H2O
+q0 = 0.1
 
-def ir_flux_down(Te, pe):
+def ir_flux_down(Te, atm):
+
+    pe = atm.pe
     
-    tau = ir_tau(pe, taulwinf)
+    tau = ir_tau(atm, taulwinf)
+    #tau = ir_tau_water(atm)
     dtau = np.diff(tau)
 
     # Define constants for interpolation of source
@@ -29,9 +38,11 @@ def ir_flux_down(Te, pe):
         
     return I_m
 
-def ir_flux_up(Te, pe):
-    
-    tau = ir_tau(pe, taulwinf)
+def ir_flux_up(Te, atm, bc=None):
+
+    pe = atm.pe
+    tau = ir_tau(atm, taulwinf)
+    #tau = ir_tau_water(atm)
     dtau = np.diff(tau)
 
     lc = linear_coeff(dtau)
@@ -40,8 +51,12 @@ def ir_flux_up(Te, pe):
     S = sig*Te**4
     
     I_p = np.zeros_like(Te)
-    I_p[-1] = S[-1]
-
+    
+    if bc == 'flux':
+        I_p[-1] = atm.Fint + atm.f_down[-1]
+    else:
+        I_p[-1] = S[-1]
+        
     dI_p = np.zeros((len(I_p) - 1))
     #dI_p = lc.b_p*S[:-1] + lc.g_p*S[1:]
     
@@ -53,16 +68,37 @@ def ir_flux_up(Te, pe):
         
     return I_p
 
-def sw_flux_down(S0, p):
-    tau_sw = sw_tau(p, tauswinf)
-    return S0*np.exp(-tau_sw)
+def sw_flux_down(atm):
+    p = atm.pe
+    S0 = atm.S0
+    f = 1#0.8
+    
+    tau_sw = sw_tau(atm, tauswinf)
+    tausw_2 = sw_tau(atm, 1)
+    return S0*(f*np.exp(-tau_sw) + (1-f)*np.exp(-tausw_2))
 
-def ir_tau(p, tauinf):
-    f = 0.9 # To test dry_adj put f=0.9, Fint = 100
-    return (tauinf*((1-f)*(p/ps) + f*(p/ps)**2))[:]
+def ir_tau(atm, tauinf):
+    p = atm.pe
+    ps = atm.ps
+    tau_h2 = 180
+    return tauinf*(p/ps)# + tau_h2*(p/ps)**2
 
-def sw_tau(p, tauinf):
+def sw_tau(atm, tauinf):
+    p = atm.pe
+    ps = atm.ps
+    
     return tauinf*(p/ps)[:]
+
+def ir_tau_water(atm):
+    p1 = 70
+    #q = np.maximum(satq(T, p, dry, wet), q0)
+    q = atm.q
+    p = atm.pe
+    dp = atm.dp
+    tau0 = np.sum(q*dp)/p1
+
+    return taulwinf*(p/ps) + tau0*(p/ps)**4
+    
     
 class linear_coeff:
     def __init__(self, dtau):
