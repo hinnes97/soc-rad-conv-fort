@@ -175,15 +175,15 @@ class atmos:
     def timestep(self):
         #### Below for timestepping version
         max_dT = 5
-        const = 0.1
-        self.R = self.calc_residual(self.Te, 'flux')
+        const = 0.01
+        self.R = self.calc_residual(self.Te)
         
         self.dT = -(self.R[1:] - self.R[:-1])*const
         
         self.dT[self.dT>max_dT] = max_dT
         self.dT[self.dT<-max_dT] = -max_dT
         
-        self.R = self.calc_residual(self.interp_to_edge(self.Tf+0.5*self.dT,self.pf, self.pe), 'flux')
+        self.R = self.calc_residual(self.interp_to_edge(self.Tf+0.5*self.dT,self.pf, self.pe))
         
         self.dT = -(self.R[1:] - self.R[:-1])*const
                 
@@ -194,13 +194,14 @@ class atmos:
         self.Te = self.interp_to_edge(self.Tf, self.pf, self.pe)
         self.T = self.interp_to_edge(self.Tf, self.pf, self.p)
 
-        self.T, self.dry_mask = conv.dry_adjust(self.T, self.p, self.dp, self.dry_mask,n_iter=100)
-        self.T, self.q, self.wet_mask = conv.moist_adjust(self.T, self.p, self.dp, self.q,
-                                                          self.wet_mask, whole_atm = True, n_iter=100)
+        #self.T, self.dry_mask = conv.dry_adjust(self.T, self.p, self.dp, self.dry_mask,n_iter=100)
+        #self.T, self.q, self.wet_mask = conv.moist_adjust(self.T, self.p, self.dp, self.q,
+        #self.wet_mask, whole_atm = True, n_iter=100)
 
         self.dry_mask[self.wet_mask] = False
+        print(f'Max residual = {np.amax(np.absolute(self.R)):.2e} W/m^2')
         
-        print(np.amax(np.absolute(self.dT)), np.amax(np.absolute(self.R[~self.dry_mask])))
+        #print(np.amax(np.absolute(self.dT)), np.amax(np.absolute(self.R[~self.dry_mask])))
 
     @staticmethod
     def smooth(T):
@@ -221,16 +222,19 @@ class atmos:
                                          self.q, self.dry_mask, self.wet_mask]))
                         
     def run_to_equilib(self, m, n, path):
-        for i in range(m):
+        #for i in range(m):
             #self.dump_state(path, str(i))
-            self.matrix()
+        #    self.matrix()
+        #    if np.amax(np.absolute(self.R[:self.N0]))<1e-10:
+        #        break
+        #self.T = self.smooth(self.T)
+        #self.Te = self.interp_to_edge(self.T, self.p, self.pe)
+        
+        for i in range(m):
+            self.timestep()
             if np.amax(np.absolute(self.R[:self.N0]))<1e-10:
                 break
-        self.T = self.smooth(self.T)
-        self.Te = self.interp_to_edge(self.T, self.p, self.pe)
         
-        #for i in range(m):
-        #    self.timestep()
 #            for p,q in self.rad_blocks:
 #                self.T[p+1:q-1] = 0.25*self.T[p:q-2] + 0.5*self.T[p+1:q-1] + 0.25*self.T[p+2:q]
 #                self.T[p] = 0.75*self.T[p]+0.25*self.T[p+1]

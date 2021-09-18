@@ -12,61 +12,82 @@ wet = phys.H2O
 q0 = 0.1
 
 def ir_flux_down(Te, atm):
+    # Testing this function
+    mus  = np.array([0.21132487, 0.78867513])
+    wus = np.array([0.5,0.5])
+
+    #mus = np.array([1])
+    #wus = np.array([1])
+    wms = mus*mus
 
     pe = atm.pe
     
     tau = ir_tau(atm, taulwinf)
+    S = sig*Te**4/np.pi
     #tau = ir_tau_water(atm)
-    dtau = np.diff(tau)
-
-    # Define constants for interpolation of source
-    lc = linear_coeff(dtau)
-    pc = parab_coeff(dtau)
-
+    
+    I_m_temp = np.zeros_like(Te)
     I_m = np.zeros_like(Te)
-    S = sig*Te**4
-
-    # Parabolic for every term but last (linear)
-    dI_m = np.zeros((len(I_m) - 1))
-    #dI_m = lc.a_m*S[:-1] + lc.b_m*S[1:]
-    
-    dI_m[:-1] = pc.a_m*S[:-2] + pc.b_m*S[1:-1] + pc.g_m*S[2:]
-    dI_m[-1] = lc.a_m[-1]*S[-2] + lc.b_m[-1]*S[-1]
-    
-    for k in range(1,len(I_m)):
-        I_m[k] = I_m[k-1]*np.exp(-dtau[k-1]) + dI_m[k-1]
+    for mu,wm in zip(mus,wms):
         
-    return I_m
+        dtau = np.diff(tau)/mu
+
+        # Define constants for interpolation of source
+        lc = linear_coeff(dtau)
+        pc = parab_coeff(dtau)
+    
+        # Parabolic for every term but last (linear)
+        dI_m = np.zeros((len(I_m) - 1))
+        #dI_m = lc.a_m*S[:-1] + lc.b_m*S[1:]
+    
+        dI_m[:-1] = pc.a_m*S[:-2] + pc.b_m*S[1:-1] + pc.g_m*S[2:]
+        dI_m[-1] = lc.a_m[-1]*S[-2] + lc.b_m[-1]*S[-1]
+    
+        for k in range(1,len(I_m)):
+            I_m_temp[k] = I_m_temp[k-1]*np.exp(-dtau[k-1]) + dI_m[k-1]
+
+        I_m = I_m + wm*I_m_temp
+    return I_m*2*np.pi
 
 def ir_flux_up(Te, atm, bc=None):
 
+    mus  = np.array([0.21132487, 0.78867513])
+    wus = np.array([0.5,0.5])
+    #mus = np.array([1])
+    #wus = np.array([1])
+    
+    wms = mus*mus
+
     pe = atm.pe
     tau = ir_tau(atm, taulwinf)
     #tau = ir_tau_water(atm)
-    dtau = np.diff(tau)
-
-    lc = linear_coeff(dtau)
-    pc = parab_coeff(dtau)
-
-    S = sig*Te**4
-    
     I_p = np.zeros_like(Te)
-    
-    if bc == 'flux':
-        I_p[-1] = atm.Fint + atm.f_down[-1]
-    else:
-        I_p[-1] = S[-1]
+    I_p_temp = np.zeros_like(Te)
+    for mu,wm in zip(mus,wms):
         
-    dI_p = np.zeros((len(I_p) - 1))
-    #dI_p = lc.b_p*S[:-1] + lc.g_p*S[1:]
-    
-    dI_p[1:] = pc.a_p*S[:-2]+ pc.b_p*S[1:-1] + pc.g_p*S[2:]
-    dI_p[0] = lc.b_p[0]*S[0] + lc.g_p[0]*S[1]
+        dtau = np.diff(tau)/mu
 
-    for k in range(len(I_p)-2,-1,-1):
-        I_p[k] = I_p[k+1]*np.exp(-dtau[k]) + dI_p[k]
+        lc = linear_coeff(dtau)
+        pc = parab_coeff(dtau)
+
+        S = sig*Te**4/np.pi
+    
+        if bc == 'flux':
+            I_p[-1] = atm.Fint + atm.f_down[-1]
+        else:
+            I_p[-1] = S[-1]
         
-    return I_p
+        dI_p = np.zeros((len(I_p) - 1))
+        #dI_p = lc.b_p*S[:-1] + lc.g_p*S[1:]
+    
+        dI_p[1:] = pc.a_p*S[:-2]+ pc.b_p*S[1:-1] + pc.g_p*S[2:]
+        dI_p[0] = lc.b_p[0]*S[0] + lc.g_p[0]*S[1]
+
+        for k in range(len(I_p)-2,-1,-1):
+            I_p_temp[k] = I_p_temp[k+1]*np.exp(-dtau[k]) + dI_p[k]
+
+        I_p = I_p + wm*I_p_temp
+    return I_p*2*np.pi
 
 def sw_flux_down(atm):
     p = atm.pe
