@@ -1,7 +1,10 @@
-data/*
 __pycache__
 
 # Should ignore executables and object files, since will be system specific
 *.o
 *.mat
 *.exe
+
+# Ignore output
+*.out
+/python/data/
