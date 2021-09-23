@@ -22,10 +22,12 @@ module params
   real(dp) :: Fint = sb*70._dp**4._dp
   real(dp) :: const = 0.0001_dp
   integer :: Nt = 1000000
+  integer :: N_max = 20
+  integer :: rad_scheme = 1
   integer :: ne
   
   namelist /param_nml/nf, log_top_p, log_bot_p, top_t, bot_t, tau_V_inf, tau_IR_inf, Finc, &
-       Fint, const
+       Fint, const, Nt, N_max, rad_scheme
   
 contains
 

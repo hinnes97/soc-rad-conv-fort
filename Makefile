@@ -1,7 +1,8 @@
 FC=gfortran
 LD=gfortran
 SRCDIR=src
-FCFLAGS= -g -fbacktrace -fcheck=all -Wall
+FCFLAGS= -g -fbacktrace -fcheck=all -Wall -O2
+FLFLAGS= -L/usr/local/lib -llapack -lrefblas
 OBJDIR=obj
 OBJS=$(patsubst $(SRCDIR)/%.f90, $(OBJDIR)/%.o, $(wildcard $(SRCDIR)/*.f90))
 
@@ -12,10 +13,10 @@ $(info $$OBJS is [${OBJS}])
 all: main.exe
 
 main.exe: $(OBJS)
-	$(LD) -o $@ $^ `nf-config --flibs`
+	$(LD) -o $@ $^ `nf-config --flibs` $(FLFLAGS)
 
 $(OBJDIR)/%.o $(OBJDIR)/%.mod: $(SRCDIR)/%.f90
-	$(FC) -c -J$(OBJDIR) -I$(OBJDIR) $(FCFLAGS) `nf-config --fflags` $< -o $@
+	$(FC) -c -J$(OBJDIR) -I$(OBJDIR) $(FCFLAGS) `nf-config --fflags` $< -o $@ 
 
 include .depend
 

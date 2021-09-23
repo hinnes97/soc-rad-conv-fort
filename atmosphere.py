@@ -40,7 +40,7 @@ class atmos:
         # Define pf levels similaraly to FMS
         self.pf = (self.pe[1:] - self.pe[:-1])/(np.log(self.pe[1:]) - np.log(self.pe[:-1]))
         self.Te = self.interp_to_edge(self.Tf, self.pf, self.pe)
-
+        
         # Have to include temp at TOA in temp vector to have equal number of fluxes + temps
         self.T = np.concatenate((self.Te[0], self.Tf), axis=None)
         self.p = np.concatenate((self.pe[0], self.pf), axis=None)
@@ -51,7 +51,7 @@ class atmos:
         self.Rcp = 2/7
         self.dry = phys.H2
         self.wet = phys.H2O
-
+        
         self.dry_mask = np.full(len(self.T), False)
         self.wet_mask = np.full(len(self.T), False)
 
@@ -62,7 +62,13 @@ class atmos:
         self.cti, self.q = conv.cold_trap(self.T, self.p, self.q)        
         
         # Initialise residual
+        self.Te = np.genfromtxt('Te.out')
+        self.Tf = self.interp_to_edge(self.Te, self.pe, self.pf)
+        self.T = np.concatenate((self.Te[0], self.Tf), axis=None)
         self.R = self.calc_residual(self.Te)
+        #print(self.R)
+        print(self.R)
+        np.savetxt('Te.txt', self.Te)
         
     def interp_to_edge(self,Tf, pf, pe):
 
@@ -71,7 +77,7 @@ class atmos:
         logpf = np.log(pf)
         logpe = np.log(pe)
        
-        f = spi.CubicSpline(logpf, Tf, extrapolate=True)
+        f = spi.interp1d(logpf, Tf, fill_value='extrapolate')
 
         return f(logpe)
 
@@ -111,6 +117,7 @@ class atmos:
             
             jacob[:,i] = (Fdash_i - self.R[mask])/dT
 
+        np.savetxt('mat_py.out', jacob)
         return jacob
 
     def matrix(self):
@@ -165,7 +172,8 @@ class atmos:
         self.T[self.T<150] = 150
         self.Tf  = self.T[1:]
 
-        print(f'Max residual = {np.amax(np.absolute(self.R[rad_mask])):.2e} W/m^2')
+        #print(f'Max residual = {np.amax(np.absolute(self.R[rad_mask])):.2e} W/m^2')
+
         
          # Calculate residual
         
@@ -199,8 +207,8 @@ class atmos:
         #self.wet_mask, whole_atm = True, n_iter=100)
 
         self.dry_mask[self.wet_mask] = False
-        print(f'Max residual = {np.amax(np.absolute(self.R)):.2e} W/m^2')
-        
+        #print(f'Max residual = {np.amax(np.absolute(self.R)):.2e} W/m^2')
+        #print(f'Residual = {self.R:.2e}')
         #print(np.amax(np.absolute(self.dT)), np.amax(np.absolute(self.R[~self.dry_mask])))
 
     @staticmethod
@@ -222,18 +230,19 @@ class atmos:
                                          self.q, self.dry_mask, self.wet_mask]))
                         
     def run_to_equilib(self, m, n, path):
-        #for i in range(m):
-            #self.dump_state(path, str(i))
-        #    self.matrix()
-        #    if np.amax(np.absolute(self.R[:self.N0]))<1e-10:
-        #        break
-        #self.T = self.smooth(self.T)
-        #self.Te = self.interp_to_edge(self.T, self.p, self.pe)
-        
         for i in range(m):
-            self.timestep()
+            #self.dump_state(path, str(i))
+            self.matrix()
+            print(i)
             if np.amax(np.absolute(self.R[:self.N0]))<1e-10:
                 break
+        self.T = self.smooth(self.T)
+        self.Te = self.interp_to_edge(self.T, self.p, self.pe)
+        
+        #for i in range(m):
+        #    self.timestep()
+        #    if np.amax(np.absolute(self.R[:self.N0]))<1e-10:
+        #        break
         
 #            for p,q in self.rad_blocks:
 #                self.T[p+1:q-1] = 0.25*self.T[p:q-2] + 0.5*self.T[p+1:q-1] + 0.25*self.T[p+2:q]
@@ -264,9 +273,9 @@ class atmos:
         
         
 if __name__ == '__main__':
-    pt = 1e2
+    pt = 1e1
     ps = 1e6
-    Ne = 100
+    Ne = 101
     
     pp = np.logspace(1,5,Ne-1)
     def analytic(p, taulwinf,tauswinf):
@@ -278,7 +287,7 @@ if __name__ == '__main__':
         return (test/2/rad.sig)**0.25
 
     #t_init = analytic(pp, 10,6)
-    t_init =np.linspace(200,400,Ne-1)
+    t_init =np.linspace(200,500,Ne-1)
     atm = atmos(pt, ps, Ne, t_init, 1368/4)
 
-    atm.run_to_equilib(1000, 2, 'data/test')
+    atm.run_to_equilib(1, 2, 'data/test')

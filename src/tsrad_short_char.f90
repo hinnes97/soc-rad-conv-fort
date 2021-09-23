@@ -19,10 +19,17 @@ module radiation_Kitzmann_noscatt
 
 
   !! Legendre quadrature for 2 nodes
-  integer, parameter :: nmu = 2
-  real(dp), dimension(nmu), parameter :: uarr = (/0.21132487_dp, 0.78867513_dp/)
-  real(dp), dimension(nmu), parameter :: w = (/0.5_dp, 0.5_dp/)
+  !integer, parameter :: nmu = 2
+  !real(dp), dimension(nmu), parameter :: uarr = (/0.21132487_dp, 0.78867513_dp/)
+  !real(dp), dimension(nmu), parameter :: w = (/0.5_dp, 0.5_dp/)
+  !real(dp), dimension(nmu), parameter :: wuarr = uarr * w
+
+  integer, parameter :: nmu = 1
+  real(dp), dimension(nmu), parameter :: uarr = (/1.0_dp/)
+  real(dp), dimension(nmu), parameter :: w = (/1.0_dp/)
   real(dp), dimension(nmu), parameter :: wuarr = uarr * w
+
+  
 
   !! Lacis & Oinas (1991) numerical values - DOES NOT WORK CORRECTLY FOR SOME REASON
   ! integer, parameter :: nmu = 3
@@ -49,14 +56,14 @@ module radiation_Kitzmann_noscatt
 
 contains
 
-  subroutine Kitzmann_TS_noscatt(nlay, nlev, Tl, pl, pe, tau_IRe, tau_Ve, &
+  subroutine Kitzmann_TS_noscatt(nlay, nlev, Te, pe, tau_IRe, tau_Ve, &
           &  net_F, mu_s, Finc, Fint, olr)
     implicit none
 
     !! Input variables
     integer, intent(in) :: nlay, nlev                         ! Number of layers, levels (lev = lay + 1)
-    real(dp), dimension(nlay), intent(in) :: Tl, pl           ! Temperature [K], pressure [pa] at layers
-    real(dp), dimension(nlev), intent(in) :: pe               ! pressure [pa] at levels
+    !real(dp), dimension(nlay), intent(in) :: Tl, pl           ! Temperature [K], pressure [pa] at layers
+    real(dp), dimension(nlev), intent(in) :: Te, pe           ! pressure [pa] at levels
     real(dp), dimension(nlev), intent(in) :: tau_Ve, tau_IRe  ! V and IR band cumulative optical depth at levels
     real(dp), intent(in) :: Finc, mu_s                        ! Incident flux [W m-2] and cosine zenith angle
     real(dp), intent(in) :: Fint                              ! Internal flux [W m-2]
@@ -67,18 +74,18 @@ contains
 
     !! Work variables
     integer :: i
-    real(dp), dimension(nlev) :: Te, be
+    real(dp), dimension(nlev) :: be
     real(dp), dimension(nlev) :: sw_down, sw_up, lw_down, lw_up
     real(dp), dimension(nlev) :: lw_net, sw_net
 
     ! Find temperature at layer edges through linear interpolation and extrapolation
-    do i = 2, nlay
-      call linear_log_interp(pe(i), pl(i-1), pl(i), Tl(i-1), Tl(i), Te(i))
+    !do i = 2, nlay
+    !  call linear_log_interp(pe(i), pl(i-1), pl(i), Tl(i-1), Tl(i), Te(i))
       !print*, i, pl(i), pl(i-1), pe(i), Tl(i-1), Tl(i), Te(i)
-    end do
+    !end do
     ! Extrapolate to find Te at uppermost and lowest levels
-    Te(1) = Tl(1) + (pe(1) - pe(2))/(pl(1) - pe(2)) * (Tl(1) - Te(2))
-    Te(nlev) = Tl(nlay) + (pe(nlev) - pe(nlay))/(pl(nlay) - pe(nlay)) * (Tl(nlay) - Te(nlay))
+    !Te(1) = Tl(1) + (pe(1) - pe(2))/(pl(1) - pe(2)) * (Tl(1) - Te(2))
+    !Te(nlev) = Tl(nlay) + (pe(nlev) - pe(nlay))/(pl(nlay) - pe(nlay)) * (Tl(nlay) - Te(nlay))
 
     !! Shortwave fluxes
     sw_down(:) = 0.0_dp
@@ -90,7 +97,7 @@ contains
 
     !! Long wave two-stream fluxes
     ! Blackbody fluxes (note divide by pi for correct units)
-    be(:) = sb * Te(:)**4/pi
+    be(:) = sb * Te(:)**4!/pi
     ! Calculate lw flux
     call lw_grey_updown_linear(nlay, nlev, be, tau_IRe, lw_up, lw_down)
 
@@ -100,7 +107,7 @@ contains
     net_F(:) = lw_net(:) + sw_net(:)
 
     ! Internal flux at lowest level
-    net_F(nlev) = Fint
+    !net_F(nlev) = Fint
     ! olr is upward longwave flux
     olr = lw_up(1)
 
@@ -167,12 +174,12 @@ contains
       !! Sum up flux arrays with Gauss weights and points for this mu stream
       lw_down(:) = lw_down(:) + lw_down_g(:) * wuarr(m)
       lw_up(:) = lw_up(:) + lw_up_g(:) * wuarr(m)
-
+      
     end do
 
     ! Convert to flux by * 2pi
-    lw_down(:) = twopi * lw_down(:)
-    lw_up(:) = twopi * lw_up(:)
+    !lw_down(:) = twopi * lw_down(:)
+    !lw_up(:) = twopi * lw_up(:)
 
 
   end subroutine lw_grey_updown_linear
@@ -186,7 +193,7 @@ contains
     real(dp), dimension(nlev), intent(out) :: sw_down
 
     sw_down(:) = solar * mu * exp(-solar_tau(:)/mu)
-
+    
   end subroutine sw_grey_down
 
   ! Perform linear interpolation in log10 space

@@ -1,0 +1,41 @@
+[I 13:59:51.758 NotebookApp] JupyterLab extension loaded from /home/hamish/miniconda3/lib/python3.7/site-packages/jupyterlab
+[I 13:59:51.759 NotebookApp] JupyterLab application directory is /home/hamish/miniconda3/share/jupyter/lab
+[I 13:59:51.760 NotebookApp] Serving notebooks from local directory: /home/hamish/Documents/DPhil/matrixrt
+[I 13:59:51.760 NotebookApp] The Jupyter Notebook is running at:
+[I 13:59:51.760 NotebookApp] http://localhost:8888/?token=84ee1f959dcfb385c84ec9bf1b5b0eb403c43ae3660134a7
+[I 13:59:51.760 NotebookApp]  or http://127.0.0.1:8888/?token=84ee1f959dcfb385c84ec9bf1b5b0eb403c43ae3660134a7
+[I 13:59:51.760 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[C 13:59:51.784 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///home/hamish/.local/share/jupyter/runtime/nbserver-422305-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:8888/?token=84ee1f959dcfb385c84ec9bf1b5b0eb403c43ae3660134a7
+     or http://127.0.0.1:8888/?token=84ee1f959dcfb385c84ec9bf1b5b0eb403c43ae3660134a7
+[I 13:59:54.124 NotebookApp] Kernel started: aa7ad892-6396-418f-822a-0f1552e8d989
+[I 13:59:56.679 NotebookApp] Interrupted...
+[I 13:59:56.680 NotebookApp] Shutting down 1 kernel
+[I 13:59:56.982 NotebookApp] Kernel shutdown: aa7ad892-6396-418f-822a-0f1552e8d989
+[I 14:00:01.376 NotebookApp] JupyterLab extension loaded from /home/hamish/miniconda3/lib/python3.7/site-packages/jupyterlab
+[I 14:00:01.377 NotebookApp] JupyterLab application directory is /home/hamish/miniconda3/share/jupyter/lab
+[I 14:00:01.378 NotebookApp] Serving notebooks from local directory: /home/hamish/Documents/DPhil/matrixrt
+[I 14:00:01.378 NotebookApp] The Jupyter Notebook is running at:
+[I 14:00:01.378 NotebookApp] http://localhost:8888/?token=fe13f4734287372660b6a21dbe6a98b0e21cb42dc058f836
+[I 14:00:01.378 NotebookApp]  or http://127.0.0.1:8888/?token=fe13f4734287372660b6a21dbe6a98b0e21cb42dc058f836
+[I 14:00:01.378 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[C 14:00:01.397 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///home/hamish/.local/share/jupyter/runtime/nbserver-422447-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:8888/?token=fe13f4734287372660b6a21dbe6a98b0e21cb42dc058f836
+     or http://127.0.0.1:8888/?token=fe13f4734287372660b6a21dbe6a98b0e21cb42dc058f836
+[I 14:00:03.735 NotebookApp] Kernel started: edc50019-9199-42ee-a1b5-ce419beef299
+[I 14:02:04.433 NotebookApp] Saving file at /Untitled.ipynb
+[I 14:08:03.737 NotebookApp] Saving file at /Untitled.ipynb
+[I 15:12:03.756 NotebookApp] Saving file at /Untitled.ipynb
+[I 15:14:03.752 NotebookApp] Saving file at /Untitled.ipynb
+[I 15:24:03.768 NotebookApp] Saving file at /Untitled.ipynb
+[I 15:26:03.738 NotebookApp] Saving file at /Untitled.ipynb
+[I 15:26:28.189 NotebookApp] Saving file at /Untitled.ipynb
+[I 15:32:03.753 NotebookApp] Saving file at /Untitled.ipynb

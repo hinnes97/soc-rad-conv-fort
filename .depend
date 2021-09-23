@@ -1,5 +1,8 @@
+obj/flux.o : src/flux.f90 obj/tsrad_short_char.o obj/params.o 
 obj/io.o : src/io.f90 
-obj/main.o : src/main.f90 obj/params.o obj/utils.o obj/io.o obj/tsrad_short_char.o 
+obj/main.o : src/main.f90 obj/matrix.o obj/timestep.o obj/params.o obj/utils.o obj/io.o 
+obj/matrix.o : src/matrix.f90 obj/utils.o obj/flux.o obj/params.o 
 obj/params.o : src/params.f90 
+obj/timestep.o : src/timestep.f90 obj/utils.o obj/flux.o obj/params.o 
 obj/tsrad_short_char.o : src/tsrad_short_char.f90 obj/params.o 
 obj/utils.o : src/utils.f90 
