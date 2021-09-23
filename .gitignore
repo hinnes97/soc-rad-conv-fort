@@ -6,5 +6,5 @@ __pycache__
 *.exe
 
 # Ignore output
-*.out
+*.nc
 /python/data/
