@@ -54,28 +54,17 @@ contains
     ne = nf + 1
   end subroutine read_constants
 
-  subroutine allocate_arrays(Tf, pf, pe, tau_IR, tau_V, net_F, dT)
-    real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe, tau_IR, tau_V, net_F, dT
+  subroutine allocate_arrays(Tf, pf, pe, tau_IR, tau_V, net_F, dT, Te)
+    real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe, tau_IR, tau_V, net_F, dT,Te
     
-    allocate(Tf(nf))
-    allocate(pf(nf))
-    allocate(pe(ne))
-    allocate(tau_IR(ne))
-    allocate(tau_V(ne))
-    allocate(net_F(ne))
-    allocate(dT(nf))
+    allocate(Tf(nf), pf(nf), pe(ne), tau_IR(ne), tau_V(ne), net_F(ne), dT(nf), Te(ne))
     
   end subroutine allocate_arrays
 
-  subroutine deallocate_arrays(Tf, pf, pe, tau_IR, tau_V, net_F, dT)
-    real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe, tau_IR, tau_V, net_F, dT
-    deallocate(Tf)
-    deallocate(pf)
-    deallocate(pe)
-    deallocate(tau_IR)
-    deallocate(tau_V)
-    deallocate(net_F)
-    deallocate(dT)
+  subroutine deallocate_arrays(Tf, pf, pe, tau_IR, tau_V, net_F, dT,Te)
+    real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe,&
+         & tau_IR, tau_V, net_F, dT,Te
+    deallocate(Tf,pf,pe,tau_IR,tau_V,net_F,dT,Te)
     
   end subroutine deallocate_arrays
 

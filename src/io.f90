@@ -27,7 +27,7 @@ contains
 
     integer :: status
     integer :: pf_dim_id, pe_dim_id
-    integer :: tf_id, pf_id, pe_id, olr_id, tau_ir_inf_id, tau_v_inf_id
+    integer :: tf_id, pf_id, pe_id, olr_id, tau_ir_inf_id, tau_v_inf_id, te_id
     integer :: finc_id, fint_id
 
     ! Create output file
@@ -42,6 +42,8 @@ contains
 
     ! Create variables
     status = nf90_def_var(ncid, "Tf", nf90_double, pf_dim_id, tf_id)
+    if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_def_var(ncid, "Te", nf90_double, pe_dim_id, te_id)
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_def_var(ncid, "pfull", nf90_double, pf_dim_id, pf_id)
     if (status /= nf90_noerr) call handle_err(status)
@@ -65,6 +67,8 @@ contains
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_put_att(ncid, tf_id, "Units", "K")
     if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_put_att(ncid, te_id, "Units", "K")
+    if (status /= nf90_noerr) call handle_err(status)
     status = nf90_put_att(ncid, olr_id, "Units", "W/m^2")
     if (status /= nf90_noerr) call handle_err(status)    
     status = nf90_put_att(ncid, tau_ir_inf_id, "Units", "Dimensionless")
@@ -82,6 +86,8 @@ contains
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_put_att(ncid, tf_id, "Long name", "Mid level temperature")
     if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_put_att(ncid, te_id, "Long name", "Interface temperature")
+    if (status /= nf90_noerr) call handle_err(status)    
     status = nf90_put_att(ncid, olr_id, "Long name", "Outgoing longwave radiation")
     if (status /= nf90_noerr) call handle_err(status)    
     status = nf90_put_att(ncid, tau_ir_inf_id, "Long name", "IR optical depth")
@@ -99,11 +105,11 @@ contains
     
   end subroutine file_setup
 
-  subroutine dump_data(ncid, nf, ne, Tf, pf, pe, olr, tau_IR_inf, tau_V_inf, Finc, Fint)
+  subroutine dump_data(ncid, nf, ne, Tf, pf, pe, olr, tau_IR_inf, tau_V_inf, Finc, Fint, Te)
     integer, intent(in) :: ncid
     integer, intent(in) :: nf, ne
     real(dp), intent(in), dimension(nf) :: Tf,pf
-    real(dp), intent(in), dimension(ne) :: pe
+    real(dp), intent(in), dimension(ne) :: te,pe
     real(dp), intent(in) :: olr, tau_IR_inf, tau_V_inf, Finc, Fint
     
     integer :: dummy_id, status
@@ -112,6 +118,12 @@ contains
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_put_var(ncid, dummy_id, Tf)
     if (status /= nf90_noerr) call handle_err(status)
+
+    status = nf90_inq_varid(ncid, "Te", dummy_id)
+    if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_put_var(ncid, dummy_id, Te)
+    if (status /= nf90_noerr) call handle_err(status)
+
 
     status = nf90_inq_varid(ncid, "pfull", dummy_id)
     if (status /= nf90_noerr) call handle_err(status)

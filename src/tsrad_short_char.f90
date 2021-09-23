@@ -19,15 +19,15 @@ module radiation_Kitzmann_noscatt
 
 
   !! Legendre quadrature for 2 nodes
-  !integer, parameter :: nmu = 2
-  !real(dp), dimension(nmu), parameter :: uarr = (/0.21132487_dp, 0.78867513_dp/)
-  !real(dp), dimension(nmu), parameter :: w = (/0.5_dp, 0.5_dp/)
-  !real(dp), dimension(nmu), parameter :: wuarr = uarr * w
-
-  integer, parameter :: nmu = 1
-  real(dp), dimension(nmu), parameter :: uarr = (/1.0_dp/)
-  real(dp), dimension(nmu), parameter :: w = (/1.0_dp/)
+  integer, parameter :: nmu = 2
+  real(dp), dimension(nmu), parameter :: uarr = (/0.21132487_dp, 0.78867513_dp/)
+  real(dp), dimension(nmu), parameter :: w = (/0.5_dp, 0.5_dp/)
   real(dp), dimension(nmu), parameter :: wuarr = uarr * w
+
+  !integer, parameter :: nmu = 1
+  !real(dp), dimension(nmu), parameter :: uarr = (/1.0_dp/)
+  !real(dp), dimension(nmu), parameter :: w = (/1.0_dp/)
+  !real(dp), dimension(nmu), parameter :: wuarr = uarr * w
 
   
 
@@ -97,7 +97,7 @@ contains
 
     !! Long wave two-stream fluxes
     ! Blackbody fluxes (note divide by pi for correct units)
-    be(:) = sb * Te(:)**4!/pi
+    be(:) = sb * Te(:)**4/pi
     ! Calculate lw flux
     call lw_grey_updown_linear(nlay, nlev, be, tau_IRe, lw_up, lw_down)
 
@@ -178,8 +178,8 @@ contains
     end do
 
     ! Convert to flux by * 2pi
-    !lw_down(:) = twopi * lw_down(:)
-    !lw_up(:) = twopi * lw_up(:)
+    lw_down(:) = twopi * lw_down(:)
+    lw_up(:) = twopi * lw_up(:)
 
 
   end subroutine lw_grey_updown_linear
