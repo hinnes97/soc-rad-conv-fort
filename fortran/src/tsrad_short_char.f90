@@ -1,4 +1,4 @@
-	!! EKH-Lee - Oct 2020
+!! EKH-Lee - Oct 2020
 ! Two-stream method following the Helios-r method without scattering (Kitzmann et al. 2020)
 ! Uses the method of short characteristics (Olson & Kunasz 1987) with linear interpolants.
 ! Properties: Fast, efficenct, flexible and stable
@@ -6,7 +6,8 @@
 !!
 module radiation_Kitzmann_noscatt
   use, intrinsic :: iso_fortran_env
-  use params, only : sb, pi, twopi, Finc, dp, kappa_sw, kappa_lw
+  use params, only : sb, pi, twopi, Finc, Fint,  dp, kappa_sw, kappa_lw, surface, moist_rad, kappa_q
+  use tau_mod, only: calc_tau
   implicit none
 
   !! Gauss quadrature variables - here you can comment in/out groups of mu values for testing
@@ -57,28 +58,49 @@ module radiation_Kitzmann_noscatt
 contains
 
   subroutine Kitzmann_TS_noscatt(nlay, nlev, Te, pe,  &
-          &  net_F, mu_s, Finc, Fint, olr, q, lw_up, lw_down)
+          &  net_F, mu_s,Ts, olr, q, lw_up, lw_down, sw_down)
     implicit none
 
     !! Input variables
     integer, intent(in) :: nlay, nlev                         ! Number of layers, levels (lev = lay + 1)
     !real(dp), dimension(nlay), intent(in) :: Tl, pl           ! Temperature [K], pressure [pa] at layers
     real(dp), dimension(nlev), intent(in) :: Te, pe           ! pressure [pa] at levels
-    real(dp), intent(in) :: Finc, mu_s                        ! Incident flux [W m-2] and cosine zenith angle
-    real(dp), intent(in) :: Fint                              ! Internal flux [W m-2]
+    real(dp), intent(in) :: mu_s                        ! Incident flux [W m-2] and cosine zenith angle
+    real(dp), intent(in) :: Ts ! Surface temp [K]
     real(dp), intent(in) :: q(:)
 
     !! Output variables
-    real(dp), dimension(nlev), intent(out) :: net_F, lw_down, lw_up
+    real(dp), dimension(nlev), intent(out) :: net_F, lw_down, lw_up, sw_down
     real(dp), intent(out) :: olr
 
     !! Work variables
     integer :: i
     real(dp), dimension(nlev) :: be
-    real(dp), dimension(nlev) :: sw_down, sw_up
-    real(dp), dimension(nlev) :: lw_net, sw_net
+    real(dp), dimension(nlev) :: sw_up
+    real(dp), dimension(nlev) :: lw_net, sw_net, tau_IRe, tau_Ve
+    real(dp), dimension(nlay) :: q_temp
 
+    q_temp = 1.0
+    tau_IRe = 0.0
+    tau_Ve = 0.0
 
+    if (moist_rad) then
+       call calc_tau(kappa_q, pe, q, 0.5_dp, tau_IRe)
+       call calc_tau(kappa_lw, pe, 1-q, 0.5_dp, tau_IRe)
+       call calc_tau(kappa_sw, pe, q_temp, 0.5_dp, tau_Ve)
+       write(*,*) 'TAU TEST', tau_IRe
+    else
+       call calc_tau(kappa_lw, pe, q_temp, 1._dp, tau_IRe)
+       call calc_tau(kappa_sw, pe, q_temp, 1._dp, tau_Ve)
+    endif
+    
+    write(*,*) 'HERE', moist_rad
+    !do i=1,nlev
+    !   tau_IRe(i) = 256*pe(i)/pe(nlev)
+    !   tau_Ve(i) = 256*0.04*pe(i)/pe(nlev)
+    !enddo
+
+!    write(*,*) tau_IRe(nlev), tau_Ve(nlev)
     !! Shortwave fluxes
     sw_down(:) = 0.0_dp
     sw_up(:) = 0.0_dp
@@ -89,9 +111,9 @@ contains
 
     !! Long wave two-stream fluxes
     ! Blackbody fluxes (note divide by pi for correct units)
-    be(:) = sb * Te(:)**4!/pi
+    be(:) = sb * Te(:)**4
     ! Calculate lw flux
-    call lw_grey_updown_linear(nlay, nlev, be, tau_IRe, lw_up, lw_down)
+    call lw_grey_updown_linear(nlay, nlev, be, Ts, tau_IRe, lw_up, lw_down)
 
     ! Net fluxes at each level
     lw_net(:) = lw_up(:) - lw_down(:)
@@ -103,14 +125,17 @@ contains
     ! olr is upward longwave flux
     olr = lw_up(1)
 
+    !write(*,*) 'TSRAD lwup(1), lwdown(1), swup(1), swdown(1)', lw_up(1), lw_down(1), sw_up(1), sw_down(1)
   end subroutine Kitzmann_TS_noscatt
 
-  subroutine lw_grey_updown_linear(nlay, nlev, be, tau_IRe, lw_up, lw_down)
+  subroutine lw_grey_updown_linear(nlay, nlev, be, Ts, tau_IRe, lw_up, lw_down)
     implicit none
 
     !! Input variables
     integer, intent(in) :: nlay, nlev
+    real(dp), intent(in) :: Ts
     real(dp), dimension(nlev), intent(in) :: be
+    real(dp), dimension(nlev), intent(inout) :: tau_IRe
 
     !! Output variables
     real(dp), dimension(nlev), intent(out) :: lw_up, lw_down
@@ -158,7 +183,13 @@ contains
 
       !! Peform upward loop
       ! Lower boundary condition - planck function intensity upward from lowest level
-      lw_up_g(nlev) = be(nlev)
+      if (surface) then
+         lw_up_g(nlev) = sb*Ts**4
+      else
+         !lw_up_g(nlev) = be(nlev)
+         lw_up_g(nlev) = Fint/pi + lw_down_g(nlev)
+      endif
+      
       do k = nlay, 1, -1
         lw_up_g(k) = lw_up_g(k+1)*edel(k) + Bm(k)*be(k) + Am(k)*be(k+1) ! TS intensity
       end do
@@ -170,8 +201,8 @@ contains
     end do
 
     ! Convert to flux by * 2pi
-    lw_down(:) = lw_down(:)!twopi * lw_down(:)
-    lw_up(:) = lw_up(:) !twopi * lw_up(:)
+    lw_down(:) = lw_down(:)
+    lw_up(:) =  lw_up(:)
 
 
   end subroutine lw_grey_updown_linear
@@ -184,8 +215,9 @@ contains
     real(dp), dimension(nlev), intent(in) :: solar_tau
     real(dp), dimension(nlev), intent(out) :: sw_down
 
-    sw_down(:) = solar * mu * exp(-solar_tau(:)/mu)
     
+    sw_down(:) = solar * mu * exp(-solar_tau(:)/mu)
+    !write(*,*) solar, mu, solar_tau(1), sw_down(1)
   end subroutine sw_grey_down
 
   ! Perform linear interpolation in log10 space
@@ -206,5 +238,5 @@ contains
     yval = 10.0_dp**((ly1 * (lx2 - lxval) + ly2 * (lxval - lx1)) * norm)
 
   end subroutine linear_log_interp
-
+  
 end module radiation_Kitzmann_noscatt

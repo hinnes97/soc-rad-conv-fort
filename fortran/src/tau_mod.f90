@@ -20,7 +20,7 @@ contains
 
     ! Find additional optical depth of layer due to component with concentration q
     do k=1,nf
-       tau(k+1) = tau(k+1) + tau(k) + (pe(k+1) - pe(k))*kappa/grav * q(k) / mu_av
+       tau(k+1) =  tau(k) + (pe(k+1) - pe(k))*kappa/grav * q(k) / mu_av
     enddo
     
   end subroutine calc_tau

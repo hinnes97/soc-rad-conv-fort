@@ -14,7 +14,13 @@ __pycache__
 /fortran/data
 *.pdf
 *.dat
+*.log
+*.readme
+*current*
+*profile*
 
 # Ignore ipython notebooks
 *.ipynb
 
+#Ignore spectral files
+spectral_files

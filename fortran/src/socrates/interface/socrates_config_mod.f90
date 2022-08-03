@@ -64,6 +64,7 @@ LOGICAL :: l_planet_grey_surface = .TRUE.
   REAL(r_def) :: hcfc22_mix_ratio = 0.0 !6.866e-10
   REAL(r_def) :: hfc134a_mix_ratio = 0.0 !2.536e-10
   REAL(r_def) :: h2_mix_ratio = 0.0
+  real(r_def) :: he_mix_ratio= 0.0
 
   ! Whether to include radiative effects of particular gases
   
@@ -107,6 +108,7 @@ LOGICAL :: l_planet_grey_surface = .TRUE.
 !   control%l_hfc134a        = .FALSE.
 
   logical :: inc_h2=.TRUE.
+  logical :: inc_he = .TRUE.
 
   NAMELIST/socrates_rad_nml/ stellar_constant, tidally_locked, lw_spectral_filename, lw_hires_spectral_filename, &
                              sw_spectral_filename, sw_hires_spectral_filename, socrates_hires_mode, &
@@ -123,6 +125,6 @@ LOGICAL :: l_planet_grey_surface = .TRUE.
                              hfc134a_mix_ratio, &
                              inc_h2o, inc_co2, inc_co, inc_o3, inc_n2o, inc_ch4, inc_o2, &
                              inc_so2, inc_cfc11, inc_cfc12, inc_cfc113, inc_hcfc22, inc_hfc134a, &
-                             inc_h2, use_pressure_interp_for_half_levels
+                             inc_h2, use_pressure_interp_for_half_levels, inc_he
 
 end module socrates_config_mod

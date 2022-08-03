@@ -23,13 +23,14 @@ subroutine socrates_calc(control, spectrum,                                    &
   n_profile, n_layer, n_cloud_layer, n_aer_mode,                               &
   cld_subcol_gen, cld_subcol_req,                                              &
   p_layer, t_layer, t_layer_boundaries, d_mass, density,                       &
-  h2o, o3, co2, h2,                                                            &
+  h2o, o3, co2, h2, he, ch4,                                                           &
   t_rad_surf, cos_zenith_angle, solar_irrad, orog_corr,                        &
   l_planet_grey_surface, planet_albedo, planet_emissivity,                     &
   layer_heat_capacity,                                                         &
   flux_direct, flux_down, flux_up, heating_rate, spectral_olr)
 
-use rad_pcf
+  use rad_pcf
+  use rad_ccf
 use def_control,  only: StrCtrl
 use def_spectrum, only: StrSpecData
 use def_dimen,    only: StrDim
@@ -85,6 +86,10 @@ real(r_def), intent(in) :: co2(n_profile,n_layer)
 !   Mass mixing ratio of carbon dioxide
 real(r_def), intent(in) :: h2(n_profile,n_layer)
 !   Mass mixing ratio of hydrogen
+real(r_def), intent(in) :: he(n_profile, n_layer)
+!  Mass mixing ratio of helium
+real(r_def), intent(in) :: ch4(n_profile, n_layer)
+!  Mass mixing ratio of methane
 
 real(r_def), intent(in) :: t_rad_surf(n_profile)
 !   Effective radiative temperature over whole grid-box
@@ -150,7 +155,8 @@ call set_dimen(control, dimen, spectrum, n_profile, n_layer,                   &
   n_cloud_layer, n_aer_mode, cld_subcol_gen, cld_subcol_req)
 
 call set_atm(control, dimen, spectrum, atm, n_profile, n_layer,                &
-  p_layer, t_layer, t_layer_boundaries, d_mass, density, h2o, o3, co2, h2)
+     p_layer, t_layer, t_layer_boundaries, d_mass, density, h2o, o3, co2, h2, he, ch4)
+
 
 call set_bound(control, dimen, spectrum, bound, n_profile,                     &
   t_rad_surf, cos_zenith_angle, solar_irrad, orog_corr,                        &

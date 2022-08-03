@@ -27,6 +27,7 @@ MODULE socrates_interface_mod
   USE soc_constants_mod  
   USE socrates_config_mod
   USE params, ONLY: dp
+  use rad_ccf, ONLY: c_virtual
 
   IMPLICIT NONE
 
@@ -88,15 +89,14 @@ CONTAINS
 !#ifdef INTERNAL_FILE_NML
 !   read (input_nml_file, nml=socrates_rad_nml, iostat=io)
     !#else
-    grav=12.43!grav_acc
-    rdgas=3779!r_gas_dry
-   rvgas=3779.*2.2/18.
-    cp_air=rdgas*7./2.!cp_air_dry
+    grav=grav_acc
+    rdgas=r_gas_dry
+    cp_air=cp_air_dry
 
-  inquire(file='input.nml', exist=file_exist)
+  inquire(file='input_soc.nml', exist=file_exist)
   if ( file_exist ) then
      write(*,*) 'FILE EXISTS'
-     open(99, file='input.nml', iostat=io)
+     open(99, file='input_soc.nml', iostat=io)
      if (io .ne. 0) write(*,*) 'OPEN ERROR: IOSTAT=',io
      rewind(99)
      read (99, socrates_rad_nml, iostat=io)
@@ -215,7 +215,8 @@ if(socrates_hires_mode) then
   ! Set up the call to the Socrates radiation scheme
   ! -----------------------------------------------------------------------------
   subroutine socrates_interface(rlat, rlon, soc_lw_mode,  &
-       fms_temp, fms_spec_hum, fms_ozone, fms_co2, fms_h2, fms_t_surf, fms_p_full, fms_p_half, &
+       fms_temp, fms_spec_hum, fms_ozone, fms_co2, fms_h2, fms_he, fms_ch4,  &
+       fms_t_surf, fms_p_full, fms_p_half, &
        fms_z_full, fms_z_half, fms_albedo, fms_coszen, n_profile, n_layer,        &
        output_heating_rate, output_flux_down, output_flux_up,  output_soc_spectral_olr,&
        output_flux_direct, t_half_level_out )
@@ -245,7 +246,8 @@ if(socrates_hires_mode) then
     INTEGER(i_def) :: nlat
 
     ! Input arrays
-    real(r_def), intent(in) :: fms_temp(:), fms_spec_hum(:), fms_ozone(:), fms_co2(:), fms_h2(:)
+    real(r_def), intent(in) :: fms_temp(:), fms_spec_hum(:), fms_ozone(:), fms_co2(:), fms_h2(:), fms_he(:), &
+         fms_ch4(:)
     real(r_def), intent(in) :: fms_p_full(:)
     real(r_def), intent(in) :: fms_p_half(:)
     real(r_def), intent(in) :: fms_t_surf, fms_albedo
@@ -272,7 +274,8 @@ if(socrates_hires_mode) then
     real(r_def), dimension(n_profile, n_layer) :: input_p, input_t, input_mixing_ratio, &
          input_d_mass, input_density, input_layer_heat_capacity, &
          soc_heating_rate, input_o3_mixing_ratio, &
-          input_co2_mixing_ratio,z_full_reshaped, input_h2_mixing_ratio
+         input_co2_mixing_ratio,z_full_reshaped, input_h2_mixing_ratio, input_he_mixing_ratio,&
+         input_ch4_mixing_ratio
     real(r_def), dimension(n_profile,0:n_layer) :: input_p_level, input_t_level, soc_flux_direct, &
          soc_flux_down, soc_flux_up, z_half_reshaped
     real(r_def), dimension(n_profile) :: input_t_surf, input_cos_zenith_angle, input_solar_irrad, &
@@ -336,7 +339,9 @@ if(socrates_hires_mode) then
 
           input_co2_mixing_ratio(n_profile,:) = fms_co2!reshape(fms_co2(:),(/n_profile,sk/))
           input_h2_mixing_ratio(n_profile,:) = fms_h2
-
+          input_he_mixing_ratio(n_profile,:) = fms_he
+          input_ch4_mixing_ratio(n_profile,:) = fms_ch4
+          
           !-------------
 
           !Default parameters
@@ -378,7 +383,7 @@ if(socrates_hires_mode) then
           !Set input dry mass, density, and heat capacity profiles
           DO i=n_layer, 1, -1
              input_d_mass(:,i) = (input_p_level(:,i)-input_p_level(:,i-1))/grav
-             input_density(:,i) = input_p(:,i)/(rdgas*input_t(:,i))
+             input_density(:,i) = input_p(:,i)/(rdgas*input_t(:,i)*(1. + c_virtual*fms_spec_hum(i)))
              input_layer_heat_capacity(:,i) = input_d_mass(:,i)*cp_air
           END DO
 
@@ -428,6 +433,8 @@ if(socrates_hires_mode) then
                input_o3_mixing_ratio,                      &
                input_co2_mixing_ratio,                     &
                input_h2_mixing_ratio,                      &
+               input_he_mixing_ratio,                        &
+               input_ch4_mixing_ratio,                      &
                input_t_surf,                                 &
                input_cos_zenith_angle,                       &
                input_solar_irrad,                            &
@@ -455,6 +462,8 @@ if(socrates_hires_mode) then
                input_o3_mixing_ratio,                      &
                input_co2_mixing_ratio,                     &
                input_h2_mixing_ratio,                      &
+               input_he_mixing_ratio,                       &
+               input_ch4_mixing_ratio,                      &
                input_t_surf,                                 &
                input_cos_zenith_angle,                       &
                input_solar_irrad,                            &
@@ -486,9 +495,9 @@ if(socrates_hires_mode) then
 
   end subroutine socrates_interface
 
-  subroutine run_socrates(rad_lat, rad_lon, temp_in, q_in, h2_in, ch4_in, t_surf_in, p_full_in,&
+  subroutine run_socrates(rad_lat, rad_lon, temp_in, q_in, h2_in, ch4_in, he_in, t_surf_in, p_full_in,&
     p_half_in, z_full_in, z_half_in, albedo_in, &
-       temp_tend, net_surf_sw_down, surf_lw_down, net_flux)  
+       temp_tend, net_surf_sw_down, surf_lw_down, net_flux, lw_up, lw_dn,sw_up, sw_dn)  
 
 !    use astronomy_mod, only: diurnal_solar
     !use constants_mod,         only: pi, wtmco2, wtmozone, rdgas, gas_constant
@@ -497,19 +506,20 @@ if(socrates_hires_mode) then
     use socrates_config_mod    
 
     real(dp), intent(in)       :: t_surf_in, albedo_in
-    real(dp), intent(in), dimension(:)   :: temp_in, p_full_in, q_in, z_full_in, h2_in, ch4_in
+    real(dp), intent(in), dimension(:)   :: temp_in, p_full_in, q_in, z_full_in, h2_in, ch4_in,he_in
     real(dp), intent(in), dimension(:)  :: p_half_in, z_half_in
     real(dp), intent(inout), dimension(:) :: temp_tend
     real(dp), intent(out)   :: net_surf_sw_down, surf_lw_down
     !real, intent(in) :: delta_t
     real(dp), intent(in) :: rad_lat, rad_lon
     real(dp), intent(out) :: net_flux(:)
-
+    real(dp), intent(out) :: lw_up(:), lw_dn(:), sw_up(:), sw_dn(:)
     integer(i_def) :: n_profile, n_layer
 
     real(r_def) :: t_surf_for_soc, rad_lat_soc, rad_lon_soc, albedo_soc, coszen_soc
     real(r_def), dimension(size(temp_in)) :: tg_tmp_soc, q_soc, ozone_soc, co2_soc, h2_soc, &
-    p_full_soc, output_heating_rate_sw, output_heating_rate_lw, output_heating_rate_total, z_full_soc
+         p_full_soc, output_heating_rate_sw, output_heating_rate_lw, output_heating_rate_total, z_full_soc, he_soc,&
+         ch4_soc
     real(r_def), dimension(size(temp_in)+1) :: p_half_soc, t_half_out, z_half_soc, output_soc_flux_sw_down, output_soc_flux_sw_up, &
          output_soc_flux_lw_down, output_soc_flux_lw_up
 
@@ -587,6 +597,8 @@ if(socrates_hires_mode) then
        tg_tmp_soc =  REAL(temp_in, kind(r_def))
        q_soc      =  REAL(q_in, kind(r_def))
        h2_soc     = REAL(h2_in, kind(r_def))
+       he_soc = REAL(he_in, kind(r_def))
+       ch4_soc = REAL(ch4_in, kind(r_def))
        ozone_soc  =  REAL(ozone_in, kind(r_def)) 
        co2_soc    =  REAL(co2_in, kind(r_def))      
        p_full_soc = REAL(p_full_in, kind(r_def))
@@ -599,7 +611,8 @@ if(socrates_hires_mode) then
        
 
        CALL socrates_interface(rad_lat_soc, rad_lon_soc, soc_lw_mode,  &
-            tg_tmp_soc, q_soc, ozone_soc, co2_soc, h2_soc, t_surf_for_soc, p_full_soc, p_half_soc, &
+            tg_tmp_soc, q_soc, ozone_soc, co2_soc, h2_soc, he_soc, ch4_soc,&
+            t_surf_for_soc, p_full_soc, p_half_soc, &
             z_full_soc, z_half_soc, albedo_soc, coszen_soc, n_profile, n_layer,     &
             output_heating_rate_lw, output_soc_flux_lw_down, output_soc_flux_lw_up, &
             output_soc_spectral_olr = outputted_soc_spectral_olr, t_half_level_out = t_half_out)
@@ -615,7 +628,8 @@ if(socrates_hires_mode) then
 
        soc_lw_mode = .FALSE.
        CALL socrates_interface(rad_lat_soc, rad_lon_soc, soc_lw_mode,  &
-            tg_tmp_soc, q_soc, ozone_soc, co2_soc, h2_soc, t_surf_for_soc, p_full_soc, p_half_soc, &
+            tg_tmp_soc, q_soc, ozone_soc, co2_soc, h2_soc, he_soc,ch4_soc, &
+            t_surf_for_soc, p_full_soc, p_half_soc, &
             z_full_soc, z_half_soc, albedo_soc, coszen_soc, n_profile, n_layer,     &
             output_heating_rate_sw, output_soc_flux_sw_down, output_soc_flux_sw_up)
 
@@ -629,7 +643,13 @@ if(socrates_hires_mode) then
        
        output_heating_rate_total = output_heating_rate_lw + output_heating_rate_sw
        net_flux = output_soc_flux_lw_up - output_soc_flux_lw_down + &
-                  output_soc_flux_sw_up - output_soc_flux_sw_down
+            output_soc_flux_sw_up - output_soc_flux_sw_down
+
+       sw_up = output_soc_flux_sw_up
+       sw_dn = output_soc_flux_sw_down
+       lw_up = output_soc_flux_lw_up
+       lw_dn = output_soc_flux_lw_down
+       
 
 !hires
 !            if(id_soc_spectral_olr > 0) then 

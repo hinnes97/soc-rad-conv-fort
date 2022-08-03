@@ -22,7 +22,7 @@ contains
     real(dp), intent(inout) :: Ts
     
     ! Work variables
-    real(dp), dimension(ne) :: residual, del_T, delp, T_old
+    real(dp), dimension(ne) :: residual, del_T, delp, T_old, s_up
     real(dp), dimension(ne,ne) :: mat
     real(dp), dimension(nf) :: q_sat
     logical :: dry_mask(ne), do_conv
@@ -241,7 +241,8 @@ contains
     logical, intent(in) :: do_conv
     
     
-    real(dp), dimension(ne) :: Tpert, flux, flux_pert, qpert, qsattemp, fup,fdn
+    real(dp), dimension(ne) :: Tpert, flux, flux_pert, qpert, qsattemp, fup,fdn, s_up
+    real(dp) :: s_dn(ne)
     integer :: i,j
 
     do i=1,nf
@@ -249,7 +250,7 @@ contains
     end do
 
     call get_fluxes(nf, ne, Tf, pf, Te, pe,  &
-         flux, mu_s, Finc, Fint, olr,q, Ts, fup,fdn)
+         flux, mu_s, Finc, Fint, olr,q, Ts, fup,fdn, s_dn, s_up)
 
     residual = flux - Fint
     
@@ -267,7 +268,7 @@ contains
 !       call get_fluxes(nf, ne, Tf, pf, Tpert, pe, tau_IR, tau_V, &
 !            flux_pert, mu_s, Finc, Fint, olr, qpert,fup,fdn)
        call get_fluxes(nf, ne, Tf, pf, Tpert, pe, &
-            flux_pert, mu_s, Finc, Fint, olr, q, Ts, fup,fdn)
+            flux_pert, mu_s, Finc, Fint, olr, q, Ts, fup,fdn, s_dn,s_up)
        
        mat(:,i) = (flux_pert - flux)/pert_T
     end do

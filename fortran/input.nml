@@ -1,31 +1,33 @@
 &control_nml
-  nf = 50
+  nf = 60
   matrix_rt = .false.
-  log_top_p = 0.
-  log_bot_p = 6.
-  bot_t = 800
-  top_t = 200
-  surface = .false.
+  log_top_p = 1.
+  log_bot_p = 5.
+  bot_t = 320.
+  top_t =200.
+  surface = .true.
 /
 
 &io_nml
   init_from_file = .false.
-  input_file = 'test.nc'
-  output_file = 'output/test.nc'
+ input_file ='simpson_test_2/olr_0_2.nc'
+  output_file = 'simpson_test_2/olr_0_2.nc'
 /
 
 &param_nml
-  rdgas = 3779.
+  rdgas = 3633.
   grav = 9.8
 /
 
 &timestep_nml
-  Nt = 10000
+  Nt = 100000
   const = 0.01
+  del_time = 86400.
+  accelerate = .false.
 /
 
 &matrix_nml
-  mat_iters = 20
+  mat_iters = 100
   alpha = 1.
   error_frac = 0.01
 /
@@ -36,8 +38,8 @@
 /
 
 &radiation_nml
-  Finc = 345.
-  Fint = 1
+  Finc = 200.0
+  Fint = 0.
 /
 
 &band_grey_nml
@@ -48,32 +50,24 @@
 /
 
 &semi_grey_nml
-  kappa_lw = 1.e-3
+  semi_grey_scheme = 'short_char'
+  kappa_lw = 1.6e-4
   kappa_sw = 1.e-5
-  moist_rad = .false.
-  kappa_q = 0.0078946
+  moist_rad = .true.
+  kappa_q = 0.007742840658352238
 /
 
 &moisture_nml
-  moisture_scheme = 'none'
+  moisture_scheme = 'surface'
   q0 = 0.1
 /
 
 &surface_nml
   cp_s = 1.e5
-  A_s = 0.3
+  A_s = 0.0
+  surf_const = 0.001
 /
 
-&socrates_rad_nml
-  stellar_constant = 410.
-  lw_spectral_filename= "spectral_files/sp_H_rayleigh"
-  sw_spectral_filename= "spectral_files/sp_H_rayleigh"
-  socrates_hires_mode = .True.
-  inc_h2 = .true.
-  inc_co2 = .false.
-  inc_h2o = .true.
-  inc_ch4 = .false.
-/
 
 &bg_nml
   solar_constant = 342

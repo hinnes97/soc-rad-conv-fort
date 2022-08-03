@@ -5,13 +5,15 @@ module toon_mod
   implicit none
 contains
 
-  subroutine toon_driver(Te, pe, net_F, & 
+  subroutine toon_driver(Te, pe, net_F, olr, s_dn, fdn, fup, & 
                          q, Ts)
     real(dp), intent(in) :: Te(:), pe(:) !Edge temperature+pressures
     real(dp), intent(in), optional :: q(:) ! Optional moisture variable
     real(dp), intent(in), optional :: Ts ! Surface temperature
 
     real(dp), intent(out) :: net_F(:) ! Net flux
+    real(dp), intent(out) :: fdn(:), fup(:) ! IR upwards, downwards flux
+    real(dp), intent(out) :: olr, s_dn(:)
     
     real(dp) :: tau_lw(ne), tau_sw(ne) !Optical depths
     real(dp) :: mu_av = 0.5_dp
@@ -35,6 +37,7 @@ contains
        call calc_tau(kappa_sw, pe, q_temp, mu_av, tau_sw)
     endif
 
+    write(*,*) tau_lw(ne), tau_sw(ne)
     ! Perform LW updown
     call lw_down(Te, tau_lw, mu_av, F_d)
 
@@ -52,7 +55,11 @@ contains
     if (surface) call sw_up(tau_sw, S_d(ne), S_u)
 
     net_F = F_u + S_u - F_d - S_d
-       
+    olr = F_u(1)
+    s_dn = S_d
+    fup = F_u
+    fdn = F_d
+    
   end subroutine toon_driver
 
   subroutine lw_down(Te, tau_lw, mu_av, F_d)
@@ -104,7 +111,8 @@ contains
        
        B_1p = B(k+1) + B_dash*mu_av*(tau_lw(k) - tau_lw(k+1)) + B_dash/2.
        B_2p = B(k+1) + B_dash/2.
-
+       trans = exp(-alpha*(tau_lw(k+1) - tau_lw(k)))
+       
        F_u(k) = trans*F_u(k+1) + (B_1p - B_2p*trans)
     enddo
   end subroutine lw_up

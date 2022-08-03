@@ -72,6 +72,8 @@ module params
   ! -----------------------------------------------------------------------------
   !                           SEMI-GREY (SHORT CHAR)
   !------------------------------------------------------------------------------
+  ! Semi grey scheme selector (short_char or toon right now)
+  character(30) :: semi_grey_scheme
   ! LW opacity in m^2/kg
   real(dp) :: kappa_LW = 1.e-3
   ! SW opacity in m^2/kg
@@ -88,6 +90,10 @@ module params
   integer :: Nt = 1000000
   ! Acceleration factor
   real(dp) :: const = 0.0001_dp
+  ! Timestep
+  real(dp) :: del_time
+  ! Whether to use acceleration factor
+  logical :: accelerate = .false.
 
   ! -----------------------------------------------------------------------------
   !                           MATRIX RT
@@ -146,19 +152,20 @@ module params
   real(dp) :: cp_s = 1.e5
   ! Surface albedo
   real(dp) :: A_s = 0.3
-
+  ! Const to multiply fluxes by
+  real(dp) :: surf_const = 0.01
 
   namelist /control_nml/ nf, matrix_rt, log_top_p, log_bot_p, bot_t, top_t, surface
   namelist /io_nml/ init_from_file, input_file, output_file
   namelist /param_nml/ rdgas, grav, cpair, Rcp
-  namelist /timestep_nml/ Nt, const
+  namelist /timestep_nml/ Nt, const, del_time, accelerate
   namelist /matrix_nml/ mat_iters, alpha, error_frac
   namelist /convection_nml/ conv_scheme, passes
   namelist /radiation_nml/ Finc, Fint 
   namelist /band_grey_nml/ opacity_dir, invert_grid,sw_fac, lw_fac
-  namelist /semi_grey_nml/ kappa_lw, kappa_sw, moist_rad, kappa_q
+  namelist /semi_grey_nml/ kappa_lw, kappa_sw, moist_rad, kappa_q, semi_grey_scheme
   namelist /moisture_nml/ moisture_scheme, q0
-  namelist /surface_nml/ cp_s, A_s
+  namelist /surface_nml/ cp_s, A_s, surf_const
   
   
 contains
@@ -169,8 +176,9 @@ contains
 
     if (ios .gt. 0) then
        write(*,*) "Error reading ", trim(filename), "namelist ", trim(nml), "iostat=", ios
+       stop
     endif
-    stop
+
   end subroutine check_error
   
   subroutine read_constants()
@@ -185,6 +193,7 @@ contains
        stop    
     else
        ! Read in all the different namelists
+
        open(f_unit, file=filename)
 
        ! Atmospheric parameters
@@ -237,7 +246,7 @@ contains
        rewind(f_unit)
        call check_error(ios, filename, "moisture_nml")
 
-       ! Moisture
+       ! Surface
        read(f_unit, surface_nml, iostat=ios)
        rewind(f_unit)
        call check_error(ios, filename, "surface_nml")
@@ -251,19 +260,19 @@ contains
     
   end subroutine read_constants
 
-  subroutine allocate_arrays(Tf, pf, pe, net_F, dT, Te, q, fup, fdn)
+  subroutine allocate_arrays(Tf, pf, pe, net_F, dT, Te, q, fup, fdn, s_dn, s_up)
     real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe,  net_F, dT,Te,q, &
-         fup, fdn
+         fup, fdn, s_dn, s_up
     
     allocate(Tf(nf), pf(nf), pe(ne),  net_F(ne), dT(nf), Te(ne), q(nf), &
-         fup(ne), fdn(ne))
+         fup(ne), fdn(ne), s_dn(ne), s_up(ne))
     
   end subroutine allocate_arrays
 
-  subroutine deallocate_arrays(Tf, pf, pe, net_F, dT,Te)
+  subroutine deallocate_arrays(Tf, pf, pe, net_F, dT,Te, s_dn, s_up)
     real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe,&
-         & net_F, dT,Te
-    deallocate(Tf,pf,pe,net_F,dT,Te)
+         & net_F, dT,Te, s_dn, s_up
+    deallocate(Tf,pf,pe,net_F,dT,Te, s_dn, s_up)
     
   end subroutine deallocate_arrays
 

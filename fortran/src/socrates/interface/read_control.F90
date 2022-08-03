@@ -16,7 +16,7 @@ USE rad_pcf
 USE def_control,  ONLY: StrCtrl, allocate_control
 USE def_spectrum, ONLY: StrSpecData
 USE socrates_config_mod, ONLY: l_planet_grey_surface, inc_h2o, inc_co2, inc_co, inc_o3, inc_n2o, inc_ch4, &
-     inc_o2, inc_so2, inc_cfc11, inc_cfc12, inc_cfc113, inc_hcfc22, inc_hfc134a
+     inc_o2, inc_so2, inc_cfc11, inc_cfc12, inc_cfc113, inc_hcfc22, inc_hfc134a, inc_h2, inc_he
 
 IMPLICIT NONE
 
@@ -54,13 +54,16 @@ case(ip_solar)
   control%l_ch4            = inc_ch4
   control%l_o2             = inc_o2
   control%l_so2            = inc_so2
+  control%l_h2             = inc_h2
+  control%l_he             = inc_he
   control%i_st_water       = 5
   control%i_cnv_water      = 5
   control%i_st_ice         = 11
   control%i_cnv_ice        = 11
 case(ip_infra_red)
   control%i_2stream        = ip_elsasser
-  control%i_scatter_method = ip_no_scatter_ext!ip_scatter_hybrid
+  !control%i_scatter_method = ip_no_scatter_ext!ip_scatter_hybrid
+  control%i_scatter_method=ip_no_scatter_abs
   control%l_ir_source_quad = .TRUE.
   control%l_h2o            = inc_h2o
   control%l_co2            = inc_co2
@@ -74,6 +77,8 @@ case(ip_infra_red)
   control%l_cfc113         = inc_cfc113
   control%l_hcfc22         = inc_hcfc22
   control%l_hfc134a        = inc_hfc134a
+  control%l_h2             = inc_h2
+  control%l_he             = inc_he
   control%i_st_water       = 5
   control%i_cnv_water      = 5
   control%i_st_ice         = 11
@@ -83,14 +88,15 @@ end select
 ! Angular integration (including algorithmic options):
 control%n_channel              = 1
 control%i_angular_integration  = ip_two_stream
-control%l_rescale              = .TRUE.
+control%l_rescale              = .false.!.TRUE.
 control%n_order_forward        = 2
 control%l_mixing_ratio         = .FALSE.
+control%i_direct_tau = 1
 
 ! Gaseous absorption
 control%l_gas          = .TRUE.
 control%l_continuum    = .TRUE.
-!control%l_cont_gen     = .FALSE.
+control%l_cont_gen     = .TRUE.
 control%i_gas_overlap  = ip_overlap_k_eqv_scl
 
 ! Properties of clouds
@@ -159,8 +165,11 @@ ELSE
   control%i_cloud        = ip_cloud_clear
   IF ( (control%i_scatter_method == ip_no_scatter_abs) .OR.            &
        (control%i_scatter_method == ip_no_scatter_ext) ) THEN
-    control%i_solver       = ip_solver_no_scat
-    control%i_solver_clear = ip_solver_no_scat
+    !control%i_solver       = ip_solver_no_scat
+    !control%i_solver_clear = ip_solver_no_scat
+    control%i_solver       = ip_solver_homogen_direct
+    control%i_solver_clear = ip_solver_homogen_direct
+
   ELSE
     control%i_solver       = ip_solver_homogen_direct
     control%i_solver_clear = ip_solver_homogen_direct
@@ -193,6 +202,7 @@ DO i = 1, spectrum%basic%n_band
     control%i_gas_overlap_band(i)  = ip_overlap_mix_ses2
   END IF
 END DO
+
 
 END SUBROUTINE read_control
 END MODULE read_control_mod
