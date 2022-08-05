@@ -1,6 +1,7 @@
 module timestep
   use params, only: dp, Nt, nf, ne, const, Finc, Fint, q0, surface, A_s, sb, surf_const, &
-                    moisture_scheme, sb, grav, cpair, del_time, accelerate
+       moisture_scheme, sb, grav, cpair, del_time, accelerate, cp_s, rho_s, rdgas, &
+       depth, U, C_d
   use flux_mod, only: get_fluxes
   use utils, only: linear_log_interp, bezier_interp
   use convection, only: dry_adjust
@@ -29,7 +30,7 @@ contains
     real(dp), dimension(size(Tf)) :: factor, dflux
     integer, dimension(size(Tf)) :: oscillate
 
-    real(dp) :: Ts_half, dT_surf, time_const, dew_pt
+    real(dp) :: Ts_half, dT_surf, time_const, dew_pt, Sens
     logical :: loop_cyc
     factor = const
     temp = 0
@@ -62,12 +63,7 @@ contains
        
 
    Do j =1,Nt
-       !write(*,*) 'beginning of loop', fdn(ne), fup(ne)
-       !write(*,*) ' -------------------------------------------------'
-       !write(*,*) 'Timestep ', j, ': Max(abs(res))', maxval(abs(net_F - Fint)), ', Max(abs(dT)): ', maxval(abs(Tf - temp))
-       !write(*,*) 'dT_surf', dT_surf, 's_dn_surf', s_dn(ne), 'fdn(ne)', fdn(ne), 'sig*Ts^4', sb*Ts**4
-       !write(*,*) 'fup(ne)', fup(ne)
-       !write(*,*) 'OLR - Fint - Finc', net_F(1) - Fint
+       
      temp = Tf
      do i = 2, nf-1
        call bezier_interp(pf(i-1:i+1), Tf(i-1:i+1), 3, pe(i), Te(i))
@@ -115,20 +111,12 @@ contains
     call bezier_interp(pf(nf-2:nf), Tf_half(nf-2:nf), 3, pe(nf), Te(nf))
     
     call linear_log_interp(pe(1), pf(1), pf(2), Tf(1), Tf(2), Te(1))
-    call linear_log_interp(pe(ne), pf(nf-1), pf(nf), Tf(nf-1), Tf(nf), Te(ne) )
-
-!    do i=1,ne
-!       call rain_out(pe(i), Te(i), q(i), q_sat(i))
-!    enddo
-!    call cold_rap(q)
+    !call linear_log_interp(pe(ne), pf(nf-1), pf(nf), Tf(nf-1), Tf(nf), Te(ne) )
+    Te(ne) = Ts
 
     call get_fluxes(nf, ne, Tf_half, pf, Te, pe,  &
           net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
 
-    !write(*,*) 'bottom boundary net flux', fup(ne)-fdn(ne)
-    ! do i=1,ne
-    !    write(*,*) net_F(i), Te(i)
-    ! enddo
     
     if (.not. surface) then 
        net_F(ne) = Fint
@@ -142,8 +130,8 @@ contains
           time_const = grav/cpair/(pe(i+1) - pe(i))*del_time
        endif
        
-        dT(i) = time_const*(net_F(i+1) - net_F(i))!/pe(nf+1)*(pe(i+1) - pe(i))
-        !dT(i) = factor(i)*(net_F(i+1) - net_F(i))/(abs(net_F(i+1) - net_F(i))**0.9_dp)
+        dT(i) = time_const*(net_F(i+1) - net_F(i))
+
         if (dT(i)>5.0_dp) then
            dT(i) = 5.0_dp
         endif
@@ -161,48 +149,48 @@ contains
      end do
 
      dT_surf = 0
+     
      if (surface) then
-        dT_surf = surf_const*(s_dn(ne)*(1-A_s) - sb*Ts**4 + fdn(ne))
+        ! Do turbulent heat exchange between surface and lowest atmospheric layer
+        Sens = cpair*pf(nf)/rdgas/Tf(nf) * C_d * U * (Tf(nf) - Ts)
+
+        dT_surf = ( s_dn(ne)*(1-A_s) - sb*Ts**4 + fdn(ne)  + Sens)/cp_s/rho_s/depth * del_time
+        Tf(nf) = Tf(nf)  - Sens*grav/cpair/(pe(ne) - pe(ne-1))*del_time
         Ts = Ts + dT_surf
         call dew_point_T(pe(ne), dew_pt)
         if (Ts .gt. dew_pt) then
            Ts = dew_pt
         endif
+
      endif
 
-               ! Do moisture scheme
-     !call get_q(pf, Tf, pe, q, olr)
+
      if (moisture_scheme == 'surface') then
         call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr, grad, ktrop)
-!        print*, 'dlntdlnp', log(Tf(151)/Tf(150))/log(pf(151)/pf(150))
         call new_adjust(pf, delp, Tf, q, ktrop, grad, olr, dry_mask)
-!        print*, 'after adjust', log(Tf(151)/Tf(150))/log(pf(151)/pf(150))
-        !call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr, grad, ktrop)
-        !continue
-!        print*, 'after calc_q_and_grad', log(Tf(151)/Tf(150))/log(pf(151)/pf(150))
      endif
+     
      do i = 2, nf-1
        call bezier_interp(pf(i-1:i+1), Tf_half(i-1:i+1), 3, pe(i), Te(i))
-       !call linear_log_interp(pe(i), pf(i-1), pf(i), Tf_half(i-1), Tf_half(i), Te(i))
     end do
 
     call bezier_interp(pf(nf-2:nf), Tf_half(nf-2:nf), 3, pe(nf), Te(nf))
-    ! Extrapolate to find Te at uppermost and lowest levels
+
     call linear_log_interp(pe(1), pf(1), pf(2), Tf(1), Tf(2), Te(1))
-    call linear_log_interp(pe(ne), pf(nf-1), pf(nf), Tf(nf-1), Tf(nf), Te(ne) )
-!    call dry_adjust(Tf, pf, dry_mask)
-
-    !    write(*,*) 'end of loop', fdn(ne), fup(ne)
-
+    !call linear_log_interp(pe(ne), pf(nf-1), pf(nf), Tf(nf-1), Tf(nf), Te(ne) )
+    Te(ne) = Ts
 if (.true.) then
 if (mod(j,1000) .eq. 0) then
     do i=1,nf
        if (dry_mask(i)) then
           dflux(i) = 0.
        else
-          dflux(i) = (net_F(i+1) - net_F(i))/sb/Tf(i)**4
+          if (i.eq.nf) then
+             dflux(i) = (net_F(i+1) - net_F(i) - Sens)/sb/Tf(i)**4
+          else
+             dflux(i) = (net_F(i+1) - net_F(i))/sb/Tf(i)**4
+          endif
        endif
-       
     end do
 
     do i=nf,1,-1

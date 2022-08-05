@@ -8,13 +8,15 @@ module utils
   
 contains
   
-    subroutine linspace(start, end, arr)
+    subroutine linspace(start, end, arr, endpoint)
     real(dp), intent(in) :: start
     real(dp), intent(in) :: end
 
     real(dp), dimension(:), intent(out) :: arr
 
-    integer :: n 
+    logical, intent(in), optional :: endpoint 
+    
+    integer :: n, m
     integer :: i
 
     n = size(arr)
@@ -23,21 +25,32 @@ contains
        arr(1) = start
     end if
 
+    if (present(endpoint)) then
+       if (endpoint) then
+          m = n-1
+       else
+          m = n
+       endif
+    else
+       m = n-1
+    endif
+    
     do i=1,n
-       arr(i) = start + (end - start) * (i-1)/(n-1)
+       arr(i) = start + (end - start) * (i-1)/m
     end do        
     
   end subroutine linspace
 
-  subroutine logspace(start, end, arr)
+  subroutine logspace(start, end, arr, endpoint)
     real(dp), intent(in) :: start, end
     real(dp), intent(inout)  :: arr(:)
+    logical, intent(in), optional :: endpoint
 
-    integer :: n
+    integer :: n, m
     integer :: i
 
     n = size(arr)
-    call linspace(start, end, arr)
+    call linspace(start, end, arr, endpoint)
 
     do i=1,n
        arr(i) = 10**(arr(i))

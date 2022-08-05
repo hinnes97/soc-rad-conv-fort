@@ -203,6 +203,10 @@ CHARACTER (LEN = 3), PARAMETER :: NH3_formula = 'NH3'
 REAL , PARAMETER :: NH3_L_vaporization=1.658000E+06
 REAL , PARAMETER :: NH3_rho_liquid=7.342000E+02
 
+! H2He solar mix
+REAL, PARAMETER :: H2He_solar_MolecularWeight = 2.288166
+REAL, PARAMETER :: H2He_solar_cp = 1.195451608e4
+
 CONTAINS
 !!$!Planck function (of frequency)
 !!$    FUNCTION B(nu,T) RESULT(res)

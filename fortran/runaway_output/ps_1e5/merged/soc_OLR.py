@@ -80,8 +80,8 @@ def calc_OLR_soc(p, T, q_lay, p_lay, t_lay):
     q_dry = 1 - q_lay
     q_ch4 = params.ch4_frac*q_dry
     q_h2he = q_dry - q_ch4
-    q_h2 = 0.9*q_h2he
-    q_he = 0.1*q_h2he
+    q_h2 = 0.74812*q_h2he
+    q_he = 0.25188*q_h2he
 
     tsurf = 436.7 # hope this is right
     p_surf = p[-1]

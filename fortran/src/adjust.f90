@@ -3,10 +3,10 @@
 module adjust_mod
   
   use phys, only : T_TP => H2O_TriplePointT, P_TP => H2O_TriplePointP, L_sub => H2O_L_sublimation, &
-       L_vap => H2O_L_vaporization_TriplePoint, CP_v => H2O_cp, CP_d => H2_cp, &
-       mu_d => H2_MolecularWeight, mu_v => H2O_MolecularWeight, Rstar
+       L_vap => H2O_L_vaporization_TriplePoint, CP_v => H2O_cp, CP_d => H2He_solar_cp, &
+       mu_d => H2He_solar_MolecularWeight, mu_v => H2O_MolecularWeight, Rstar
 
-  use params, only : dp, Finc
+  use params, only : dp, Finc, inhibited
   use condense, only: q_sat, cold_trap, dew_point_T
   
   implicit none
@@ -146,7 +146,7 @@ contains
     integer :: info
     integer :: npz
     logical :: conv_switch = .true.
-
+    logical :: condition
     real(dp) :: f ! Helps global energy balance to be reached
     !==========================================================================
     ! Main body
@@ -186,11 +186,15 @@ contains
     
               pfact =exp(grad(k)*log(p(k)/p(k+1)))
               
-!              !write(*,*) (T(k) .lt. T(k+1)*pfact*(1. + delta)), q(k), qsat1, q(k+1), qsat2
-              !if (((T(k) .lt. T(k+1)*pfact*(1. + delta)) .and. qsats(k+1) .lt. qcrit) .or. &
-              !     ((T(k) .gt. T(k+1)*pfact*(1-delta)) .and. (qsats(k+1) .gt. qcrit))) then
-
-              if ((T(k) .lt. T(k+1)*pfact*(1. + delta))) then
+              if (inhibited) then
+                 ! Do moisture inhibition
+                 condition = (  (T(k) - T(k+1)*pfact*(1 + delta))*(qcrit - q(k+1)) .lt. 0)
+              else
+                 ! Regular criterion
+                 condition = ( (T(k) - T(k+1)*pfact*(1+delta)) .lt. 0 )
+              endif
+              
+              if (condition) then
                  
                  !write(*,*) 'T(k+1), T(k) before', k,T(k+1), T(k)
                  T(k+1) = (T(k)*delp(k) + T(k+1)*delp(k+1))/(delp(k+1) + pfact*delp(k))

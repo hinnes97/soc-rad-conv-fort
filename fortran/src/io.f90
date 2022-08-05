@@ -261,6 +261,8 @@ contains
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_get_var(ncid, id_q, q)
     if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_get_var(ncid, id_ts, Ts)
+    if (status /= nf90_noerr) call handle_err(status)
 
     !do k=2, size(Tf)-1
     !   Tf(k) = 0.25*Tf(k-1) + 0.5*Tf(k) + 0.25*Tf(k+1)

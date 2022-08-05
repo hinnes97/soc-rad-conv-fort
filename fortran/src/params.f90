@@ -47,6 +47,10 @@ module params
   real(dp) :: top_t = 200._dp
   ! BOA initial temperature
   real(dp) :: bot_t = 500._dp
+  ! Type of pressure grid
+  character(len=20) :: p_grid = 'log'
+  ! Fraction of grid to be in hires trop
+  integer :: frac = 3
 
   ! -----------------------------------------------------------------------------
   !                           RADIATION
@@ -112,6 +116,8 @@ module params
   character(80) :: conv_scheme
   ! Number of upwards/downwards passes during convection code
   integer :: passes
+  ! Whether to include moisture inhibition
+  logical :: inhibited = .false.
   
   ! -----------------------------------------------------------------------------
   !                           ATMOSPHERIC PARAMETERS
@@ -123,7 +129,8 @@ module params
   ! Heat capcity (J/kg/K)
   real(dp) :: cpair = 3779._dp*7._dp/2._dp
   ! Dry lapse rate
-  real(dp) :: Rcp 
+  real(dp) :: Rcp
+  
 
   ! -----------------------------------------------------------------------------
   !                           MOISTURE
@@ -149,23 +156,32 @@ module params
   !------------------------------------------------------------------------------
 
   ! Surface heat capacity (J/kg/K)
-  real(dp) :: cp_s = 1.e5
+  real(dp) :: cp_s = 3989. ! Kaspi and Showman value
+  ! Surface density [kg m^-3]
+  real(dp) :: rho_s = 1035 ! Kaspi and Showman (2015) value
   ! Surface albedo
   real(dp) :: A_s = 0.3
   ! Const to multiply fluxes by
   real(dp) :: surf_const = 0.01
-
-  namelist /control_nml/ nf, matrix_rt, log_top_p, log_bot_p, bot_t, top_t, surface
+  ! Turbulent heat exchange coefficient
+  real(dp) :: C_d = 0.001
+  ! Depth of water ocean [m]
+  real(dp) :: depth = 1.
+  ! Characteristic surface wind speed
+  real(dp) :: U = 10.! Pierrehumbert 2011 value
+  
+  namelist /control_nml/ nf, matrix_rt, surface
+  namelist /initialisation_nml/ log_top_p, log_bot_p, bot_t, top_t, p_grid, frac
   namelist /io_nml/ init_from_file, input_file, output_file
   namelist /param_nml/ rdgas, grav, cpair, Rcp
   namelist /timestep_nml/ Nt, const, del_time, accelerate
   namelist /matrix_nml/ mat_iters, alpha, error_frac
-  namelist /convection_nml/ conv_scheme, passes
+  namelist /convection_nml/ conv_scheme, passes, inhibited
   namelist /radiation_nml/ Finc, Fint 
   namelist /band_grey_nml/ opacity_dir, invert_grid,sw_fac, lw_fac
   namelist /semi_grey_nml/ kappa_lw, kappa_sw, moist_rad, kappa_q, semi_grey_scheme
   namelist /moisture_nml/ moisture_scheme, q0
-  namelist /surface_nml/ cp_s, A_s, surf_const
+  namelist /surface_nml/ cp_s, A_s, surf_const, C_d, depth, U, rho_s
   
   
 contains
@@ -205,6 +221,11 @@ contains
        read(f_unit, control_nml, iostat=ios)
        rewind(f_unit)
        call check_error(ios, filename, "control_nml")
+
+       ! Initialisation
+       read(f_unit, initialisation_nml, iostat=ios)
+       rewind(f_unit)
+       call check_error(ios, filename, "initialisation_nml")
 
        ! Input/output
        read(f_unit, io_nml, iostat=ios)

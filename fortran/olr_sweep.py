@@ -1,15 +1,13 @@
 import numpy as np
 import os
 import xarray as xr
-S_vec = np.linspace(200, 300, 10)
+S_vec = np.arange(50,200,10.)
 
 
-directory = 'simpson_test_2/'
+directory = 'inhibited_output'
 os.system('mkdir '+directory)
 
 for i,S in enumerate(S_vec):
-    if i<6:
-        continue
     fname = f'olr_{i}'
     input_file = f'olr_{i-1}.nc'
     command = 'python run.py ' + directory + ' ' + fname + ' ' + str(S) + ' ' + input_file

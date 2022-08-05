@@ -55,7 +55,7 @@ program main
         pf(i) = (pe(i+1) - pe(i)) / (log(pe(i+1)) - log(pe(i)))
      end do
      !Ts = Te(ne)
-
+     write(*,*) 'INITIAL TS from file', Ts, Te(ne)
      ! Smooth input
      !do i=2,nf-1
      !   Tf(i) = Tf(i-1)*0.25 + Tf(i)*0.5 + Tf(i+1)*0.25
@@ -71,10 +71,19 @@ program main
 
   else
      ! Initialise pressure and temperature arrays as log and lin spaced respectively
-     !call logspace(log_top_p, 4._dp, pe(1:100))
-     !call linspace(1.01e4_dp, 1.e5_dp, pe(101:201))
-     call logspace(log_top_p, log_bot_p, pe)
-    
+     select case(p_grid)
+     case('log')
+        call logspace(log_top_p, log_bot_p, pe)
+     case('hires_trop')
+        ! Let section of the atmosphere between ps and ps/10 contain a larger proportion of points
+        ! Linearly spaced in this region
+        call linspace(9./10. * 10**log_bot_p, 10**(log_bot_p),pe((ne - ne/frac):ne))
+        call logspace(log_top_p, 9./10.
+        
+        call linspace(10**(9./10. * log_bot_p), 10.**(log_bot_p), pe((ne - ne/frac):ne))
+        call logspace(log_top_p, log10(0.9) + log_bot_p, pe(1:(ne-ne/frac-1)), .false.)
+     end select
+
      ! Initialise pf array from pe
      do i=1,nf
         pf(i) = (pe(i+1) - pe(i)) / (log(pe(i+1)) - log(pe(i)))
@@ -82,12 +91,11 @@ program main
 
      do i=1,nf
         Tf(i) = bot_t*(pf(i)/pe(ne))**(2./7.)
-        !call dew_point_T(pf(i),Tf(i))
+
      enddo
 
      do i=1,ne
         Te(i) = bot_t*(pe(i)/pe(ne))**(2./7.)
-        !call dew_point_T(pe(i),Te(i))
      enddo
 
     !call linspace(top_t, bot_t, Tf)
@@ -106,6 +114,7 @@ program main
      write(*,*) (Tf(i), i=1,nf)
      write(*,*) (Te(i), i=1,nf+1)
      !q = 1.
+
      Ts = Te(ne)
      write(*,*) 'Ts', Ts
   endif
@@ -131,6 +140,7 @@ program main
      call bezier_interp(pf(nf-2:nf), Tf(nf-2:nf), 3, pe(nf), Te(nf))
      call linear_log_interp(pe(1), pf(1), pf(2), Tf(1), Tf(2), Te(1))
      call linear_log_interp(pe(ne), pf(nf-1), pf(nf), Tf(nf-1), Tf(nf), Te(ne) )
+     Te(ne) = Ts
      write(*,*) Tf
   endif
   
