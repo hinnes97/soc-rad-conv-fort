@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import xarray as xr
-S_vec = np.arange(50,200,10.)
+S_vec = np.arange(50.,110.,5.)
 
 
 directory = 'inhibited_output'

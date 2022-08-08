@@ -77,10 +77,10 @@ program main
      case('hires_trop')
         ! Let section of the atmosphere between ps and ps/10 contain a larger proportion of points
         ! Linearly spaced in this region
-        call linspace(9./10. * 10**log_bot_p, 10**(log_bot_p),pe((ne - ne/frac):ne))
-        call logspace(log_top_p, 9./10.
+        !call linspace(9./10. * 10**log_bot_p, 10**(log_bot_p),pe((ne - ne/frac):ne))
+        !call logspace(log_top_p, 9./10.*log_bot_p, pe(1:(ne-ne/frac-1)), .false.)
         
-        call linspace(10**(9./10. * log_bot_p), 10.**(log_bot_p), pe((ne - ne/frac):ne))
+        call linspace(9./10.* 10.**log_bot_p, 10.**(log_bot_p), pe((ne - ne/frac):ne))
         call logspace(log_top_p, log10(0.9) + log_bot_p, pe(1:(ne-ne/frac-1)), .false.)
      end select
 

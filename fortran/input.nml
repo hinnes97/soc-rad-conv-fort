@@ -10,13 +10,13 @@
   bot_t = 250.
   top_t = 150.
   p_grid = 'hires_trop'
-  frac = 3
+  frac = 5
 /
   
 &io_nml
   init_from_file = .false.
  input_file ='inhibited_output/olr_3.nc'
-  output_file = 'inhibited_output/olr_4_higherres.nc'
+  output_file = 'inhibited_output/olr_0.nc'
 /
 
 &param_nml
@@ -25,7 +25,7 @@
 /
 
 &timestep_nml
-  Nt = 100000
+  Nt = 200000
   const = 0.01
   del_time = 8640.
   accelerate = .false.
@@ -44,7 +44,7 @@
 /
 
 &radiation_nml
-  Finc = 90.0
+  Finc = 50.0
   Fint = 0.
 /
 
