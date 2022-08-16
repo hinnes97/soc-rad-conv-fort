@@ -30,4 +30,5 @@ spectral_files
 # Ignore slurm error output
 *.err
 
-
+# Makefile
+Makefile

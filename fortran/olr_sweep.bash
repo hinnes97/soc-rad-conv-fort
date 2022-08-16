@@ -6,4 +6,5 @@
 #SBATCH -n 1
 #SBATCH --mem-per-cpu=1000
 
-python olr_sweep.py
+python -u olr_sweep.py
+

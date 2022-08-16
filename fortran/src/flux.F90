@@ -1,6 +1,6 @@
 module flux_mod
 
-  use params, only: dp, sb, invert_grid, moist_rad, surface, semi_grey_scheme
+  use params, only: dp, sb, invert_grid, moist_rad, surface, semi_grey_scheme, A_s
 !  use radiation_Kitzmann_noscatt, only: Kitzmann_TS_noscatt
   use condense, only : rain_out
   
@@ -77,7 +77,7 @@ contains
     he_in =h2_in*0.25188_dp
     h2_in =h2_in*0.74812_dp
     
-    albedo_in = 0._dp
+    albedo_in = A_s
     t_surf_in = Ts
     
     !write(*,*) '-----------------------------------------------------------------------------'

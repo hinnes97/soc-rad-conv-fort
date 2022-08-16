@@ -110,6 +110,8 @@ LOGICAL :: l_planet_grey_surface = .TRUE.
   logical :: inc_h2=.TRUE.
   logical :: inc_he = .TRUE.
 
+  ! Some control settings
+  logical :: rayleigh_sw = .false.
   NAMELIST/socrates_rad_nml/ stellar_constant, tidally_locked, lw_spectral_filename, lw_hires_spectral_filename, &
                              sw_spectral_filename, sw_hires_spectral_filename, socrates_hires_mode, &
                              input_planet_emissivity, co2_ppmv, &
@@ -125,6 +127,6 @@ LOGICAL :: l_planet_grey_surface = .TRUE.
                              hfc134a_mix_ratio, &
                              inc_h2o, inc_co2, inc_co, inc_o3, inc_n2o, inc_ch4, inc_o2, &
                              inc_so2, inc_cfc11, inc_cfc12, inc_cfc113, inc_hcfc22, inc_hfc134a, &
-                             inc_h2, use_pressure_interp_for_half_levels, inc_he
+                             inc_h2, use_pressure_interp_for_half_levels, inc_he, rayleigh_sw
 
 end module socrates_config_mod

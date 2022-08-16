@@ -6,17 +6,17 @@
 
 &initialisation_nml
   log_top_p = 1.
-  log_bot_p = 5.
-  bot_t = 250.
-  top_t = 150.
+  log_bot_p = 6.
+  bot_t = 550.
+  top_t = 120.
   p_grid = 'hires_trop'
   frac = 5
 /
   
 &io_nml
-  init_from_file = .false.
- input_file ='inhibited_output/olr_3.nc'
-  output_file = 'inhibited_output/olr_0.nc'
+  init_from_file = .true.
+ input_file ='inhibit_output_new/olr_0.nc'
+  output_file = 'inhibit_output_new/olr_1.nc'
 /
 
 &param_nml
@@ -25,9 +25,9 @@
 /
 
 &timestep_nml
-  Nt = 200000
+  Nt = 100000
   const = 0.01
-  del_time = 8640.
+  del_time = 86400.
   accelerate = .false.
 /
 
@@ -44,7 +44,7 @@
 /
 
 &radiation_nml
-  Finc = 50.0
+  Finc = 300.0
   Fint = 0.
 /
 
@@ -64,16 +64,19 @@
 /
 
 &moisture_nml
-  moisture_scheme = 'surface'
+  moisture_scheme = 'none'
   q0 = 0.1
 /
 
 &surface_nml
-  cp_s = 1.e5
-  A_s = 0.0
+  cp_s = 3989.
+  rho_s = 1035.
+  A_s  = 0.3
+  depth = 1.
   surf_const = 0.001
+  U = 10.0
+  C_d = 0.001
 /
-
 
 &bg_nml
   solar_constant = 342

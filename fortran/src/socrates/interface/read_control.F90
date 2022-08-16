@@ -16,7 +16,8 @@ USE rad_pcf
 USE def_control,  ONLY: StrCtrl, allocate_control
 USE def_spectrum, ONLY: StrSpecData
 USE socrates_config_mod, ONLY: l_planet_grey_surface, inc_h2o, inc_co2, inc_co, inc_o3, inc_n2o, inc_ch4, &
-     inc_o2, inc_so2, inc_cfc11, inc_cfc12, inc_cfc113, inc_hcfc22, inc_hfc134a, inc_h2, inc_he
+     inc_o2, inc_so2, inc_cfc11, inc_cfc12, inc_cfc113, inc_hcfc22, inc_hfc134a, inc_h2, inc_he, &
+     rayleigh_sw
 
 IMPLICIT NONE
 
@@ -43,7 +44,7 @@ select case(control%isolir)
 case(ip_solar)
   control%i_2stream        = ip_pifm80
   control%i_scatter_method = ip_scatter_full
-  control%l_rayleigh       = .FALSE.
+  control%l_rayleigh       = rayleigh_sw
   control%l_orog           = .FALSE.
   control%l_solvar         = .FALSE.
   control%l_h2o            = inc_h2o
