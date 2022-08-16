@@ -48,12 +48,12 @@ program main
   call file_setup(output_file, nf, ne, ncid)
 
   if (init_from_file .eqv. .true.) then
-     call read_initial_data(input_file, Tf, Te, q, Ts)
-     call logspace(log_top_p, log_bot_p, pe)
+     call read_initial_data(input_file, Tf, Te, q, pf,pe, Ts)
+     !call logspace(log_top_p, log_bot_p, pe)
      ! Initialise pf array from pe
-     do i=1,nf
-        pf(i) = (pe(i+1) - pe(i)) / (log(pe(i+1)) - log(pe(i)))
-     end do
+     !do i=1,nf
+     !   pf(i) = (pe(i+1) - pe(i)) / (log(pe(i+1)) - log(pe(i)))
+     !end do
      !Ts = Te(ne)
      write(*,*) 'INITIAL TS from file', Ts, Te(ne)
      ! Smooth input

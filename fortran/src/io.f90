@@ -227,20 +227,20 @@ contains
 
   end subroutine dump_data
 
-  subroutine read_initial_data(file_name, Tf, Te, q, Ts)
+  subroutine read_initial_data(file_name, Tf, Te, q, pf,pe, Ts)
     character(*), intent(in) :: file_name
-    real(dp), dimension(:), intent(out) :: Tf, Te, q
+    real(dp), dimension(:), intent(out) :: Tf, Te, q, pf, pe
     real(dp), optional, intent(out) :: Ts
-    integer :: ncid, status, id_tf, id_te, id_q,id_ts, k
+    integer :: ncid, status, id_tf, id_te, id_q,id_ts, k, id_pf, id_pe
 
     status = nf90_open(file_name, 0, ncid)
     if (status /= nf90_noerr) call handle_err(status)
 
-!    status = nf90_inq_dimid(ncid, 'pfull', id_pf)
-!    if (status /= nf90_noerr) call handle_err(status)
-!    status = nf90_inq_dimid(ncid, 'pedge', id_pe)
-!    if (status /= nf90_noerr) call handle_err(status)
-
+    !status = nf90_inq_dimid(ncid, 'pfull', id_pf)
+    !if (status /= nf90_noerr) call handle_err(status)
+    !status = nf90_inq_dimid(ncid, 'pedge', id_pe)
+    !if (status /= nf90_noerr) call handle_err(status)
+        
     status = nf90_inq_varid(ncid, 'Tf', id_tf)
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_inq_varid(ncid, 'Te', id_te)
@@ -249,12 +249,12 @@ contains
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_inq_varid(ncid, 'Ts', id_ts)
     if (status /= nf90_noerr) call handle_err(status)
-
-!    status = nf90_inq_varid(ncid, 'pf', id_pf)
-!    if (status /= nf90_noerr) call handle_err(status)
-!    status = nf90_inq_varid(ncid, 'pe', id_pe)
-!    if (status /= nf90_noerr) call handle_err(status)
-
+    status = nf90_inq_varid(ncid, 'pfull', id_pf)
+    if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_inq_varid(ncid, 'pedge', id_pe)
+    if (status /= nf90_noerr) call handle_err(status)
+    
+    
     status = nf90_get_var(ncid, id_tf, Tf)
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_get_var(ncid, id_te, Te)
@@ -262,6 +262,10 @@ contains
     status = nf90_get_var(ncid, id_q, q)
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_get_var(ncid, id_ts, Ts)
+    if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_get_var(ncid, id_pf, pf)
+    if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_get_var(ncid, id_pe, pe)
     if (status /= nf90_noerr) call handle_err(status)
 
     !do k=2, size(Tf)-1

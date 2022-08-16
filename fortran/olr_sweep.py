@@ -8,6 +8,8 @@ directory = 'inhibited_output'
 os.system('mkdir '+directory)
 
 for i,S in enumerate(S_vec):
+    if i<0:
+        continue
     fname = f'olr_{i}'
     input_file = f'olr_{i-1}.nc'
     command = 'python run.py ' + directory + ' ' + fname + ' ' + str(S) + ' ' + input_file
