@@ -15,8 +15,9 @@
   
 &io_nml
   init_from_file = .true.
- input_file ='inhibit_output_new/olr_0.nc'
-  output_file = 'inhibit_output_new/olr_1.nc'
+ input_file ='inhibited_output/olr_9.nc'
+  output_file = 'inhibited_output/olr_10.nc'
+>>>>>>> 165e0bf07df90b17963cf6e239ba7c298d56aab1
 /
 
 &param_nml
@@ -44,7 +45,7 @@
 /
 
 &radiation_nml
-  Finc = 300.0
+  Finc = 100.0
   Fint = 0.
 /
 

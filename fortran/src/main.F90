@@ -48,7 +48,7 @@ program main
   call file_setup(output_file, nf, ne, ncid)
 
   if (init_from_file .eqv. .true.) then
-     call read_initial_data(input_file, Tf, Te, q, pf,pe,Ts)
+     call read_initial_data(input_file, Tf, Te, q, pf, pe, Ts)
      !call logspace(log_top_p, log_bot_p, pe)
      ! Initialise pf array from pe
      !do i=1,nf

@@ -227,20 +227,20 @@ contains
 
   end subroutine dump_data
 
-  subroutine read_initial_data(file_name, Tf, Te, q, pf,pe,Ts)
+  subroutine read_initial_data(file_name, Tf, Te, q, pf,pe, Ts)
     character(*), intent(in) :: file_name
     real(dp), dimension(:), intent(out) :: Tf, Te, q, pf, pe
     real(dp), optional, intent(out) :: Ts
-    integer :: ncid, status, id_tf, id_te, id_q,id_ts, k,id_pf, id_pe
+    integer :: ncid, status, id_tf, id_te, id_q,id_ts, k, id_pf, id_pe
 
     status = nf90_open(file_name, 0, ncid)
     if (status /= nf90_noerr) call handle_err(status)
 
-!    status = nf90_inq_dimid(ncid, 'pfull', id_pf)
-!    if (status /= nf90_noerr) call handle_err(status)
-!    status = nf90_inq_dimid(ncid, 'pedge', id_pe)
-!    if (status /= nf90_noerr) call handle_err(status)
-
+    !status = nf90_inq_dimid(ncid, 'pfull', id_pf)
+    !if (status /= nf90_noerr) call handle_err(status)
+    !status = nf90_inq_dimid(ncid, 'pedge', id_pe)
+    !if (status /= nf90_noerr) call handle_err(status)
+        
     status = nf90_inq_varid(ncid, 'Tf', id_tf)
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_inq_varid(ncid, 'Te', id_te)

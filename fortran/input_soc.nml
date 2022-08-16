@@ -1,7 +1,7 @@
 &socrates_rad_nml
   lw_spectral_filename= "spectral_files/sp_lw_30_sub_nep_lowres"
   sw_spectral_filename= "spectral_files/sp_sw_30_sub_nep"
-  stellar_constant = 300.0
+  stellar_constant = 100.0
   inc_h2 = .true.
   inc_co2 = .false.
   inc_h2o = .true.

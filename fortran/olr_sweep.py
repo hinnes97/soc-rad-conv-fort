@@ -8,7 +8,7 @@ directory = 'inhibited_output'
 os.system('mkdir '+directory)
 
 for i,S in enumerate(S_vec):
-    if i<9:
+    if i<0:
         continue
     fname = f'olr_{i}'
     input_file = f'olr_{i-1}.nc'
