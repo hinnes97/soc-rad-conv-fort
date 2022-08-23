@@ -4,12 +4,10 @@ import xarray as xr
 S_vec = np.arange(50.,150.,5.)
 
 
-directory = 'inhibited_output'
+directory = 'inhibited_output_timestep'
 os.system('mkdir '+directory)
 
 for i,S in enumerate(S_vec):
-    if i<0:
-        continue
     fname = f'olr_{i}'
     input_file = f'olr_{i-1}.nc'
     command = 'python run.py ' + directory + ' ' + fname + ' ' + str(S) + ' ' + input_file

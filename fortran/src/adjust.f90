@@ -166,8 +166,12 @@ contains
        do k=npz-1,max(ktrop, 1),-1
           call gradient(p(k+1),T(k+1),grad(k))
           qcrit = (Rstar/mu_v)* T(k+1)/L_vap/(1._dp - mu_d/mu_v)
-          f = (Finc/olr)**(0.01_dp)
-          f = 1.
+          if (n.eq. 1) then
+             f = (Finc/olr)**(0.01_dp)
+          else
+             f = 1.
+          endif
+             
           if (qsats(k+1) .gt. 1) then
              call dew_point_T(p(k+1), T(k+1))
 

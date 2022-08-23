@@ -79,15 +79,19 @@ contains
     
     albedo_in = A_s
     t_surf_in = Ts
-    
+
+!    q_in = 0.2
+!    h2_in = 0.8
+!    he_in = 0.0
     !write(*,*) '-----------------------------------------------------------------------------'
     call run_socrates(rad_lat, rad_lon, Tf, q_in, h2_in, ch4_in, he_in,t_surf_in, pf, pe, pf, pe, albedo_in, &
          temp_tend, net_surf_sw_down, surf_lw_down, net_F, fup, fdn, s_up, s_dn)
-
     olr = fup(1)
-    !do i=1,size(net_F)
-    !   write(*,*) net_F(i)
-    !end do
+
+    ! Adjust so that bottom upwards flux = sigma T^4 in IR
+    !net_F(ne) = net_F(ne) - fup(ne)
+    !fup(ne) = sb*Te(ne)**4
+    !net_F(ne) = net_F(ne) + fup(ne)
     
 #elif defined SHORT_CHAR
 

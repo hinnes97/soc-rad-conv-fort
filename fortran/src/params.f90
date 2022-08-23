@@ -281,19 +281,17 @@ contains
     
   end subroutine read_constants
 
-  subroutine allocate_arrays(Tf, pf, pe, net_F, dT, Te, q, fup, fdn, s_dn, s_up)
-    real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe,  net_F, dT,Te,q, &
-         fup, fdn, s_dn, s_up
+  subroutine allocate_arrays(Tf, pf, pe, Te, q)
+    real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe,  Te,q
     
-    allocate(Tf(nf), pf(nf), pe(ne),  net_F(ne), dT(nf), Te(ne), q(nf), &
-         fup(ne), fdn(ne), s_dn(ne), s_up(ne))
+    allocate(Tf(nf), pf(nf), pe(ne),  Te(ne), q(nf))
     
   end subroutine allocate_arrays
 
-  subroutine deallocate_arrays(Tf, pf, pe, net_F, dT,Te, s_dn, s_up)
+  subroutine deallocate_arrays(Tf, pf, pe,Te)
     real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe,&
-         & net_F, dT,Te, s_dn, s_up
-    deallocate(Tf,pf,pe,net_F,dT,Te, s_dn, s_up)
+         & Te
+    deallocate(Tf,pf,pe,Te)
     
   end subroutine deallocate_arrays
 

@@ -23,7 +23,7 @@ program main
 
   real(dp), dimension(:), allocatable :: net_F
   real(dp), dimension(:), allocatable :: dT
-  real(dp), dimension(:), allocatable :: q, fdn, fup, s_dn, s_up
+  real(dp), dimension(:), allocatable :: q
   real(dp) :: olr, start, end, Ts
 
   integer :: ncid
@@ -33,7 +33,7 @@ program main
   ! Initialise parameters and allocate arrays
   write(*,*) 'BEFORE READ CONSTANTS'
   call read_constants()
-  call allocate_arrays(Tf, pf, pe, net_F, dT, Te, q, fup, fdn, s_dn, s_up)
+  call allocate_arrays(Tf, pf, pe, Te, q)
 
 #ifdef SOC
   call socrates_init()
@@ -100,7 +100,7 @@ program main
 
     !call linspace(top_t, bot_t, Tf)
      !call linspace(top_t, bot_t, Te)
-     top_t = (Finc/2./sb)**(0.25)
+     !top_t = (Finc/2./sb)**(0.25)
      do i=1,nf
         if (Tf(i) .lt. top_t) then
            Tf(i) = top_t
@@ -129,7 +129,7 @@ program main
      ! Do timestepping
      write(*,*) 'Timestepping'
      call cpu_time(start)
-     call step(Tf, pf, pe, net_F, dT, olr, output_file ,q, fup, fdn, s_dn, s_up,Ts)
+     call step(Tf, pf, pe, output_file ,q, Ts)
      call cpu_time(end)
      write(*,*) 'TIME ELAPSED: ', end - start
 
@@ -145,7 +145,6 @@ program main
      write(*,*) Tf
   endif
   
-  call dump_data(output_file, nf, ne, Tf, pf, pe, olr, Finc, Fint,Te, q, fup, fdn, s_dn, s_up, Ts)
-  call deallocate_arrays(Tf, pf, pe, net_F, dT,Te, s_dn, s_up)
+  call deallocate_arrays(Tf, pf, pe,Te)
   
 end program main
