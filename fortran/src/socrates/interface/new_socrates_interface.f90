@@ -350,7 +350,9 @@ if(socrates_hires_mode) then
           input_planet_albedo(n_profile) = fms_albedo!reshape(fms_albedo(:,:),(/n_profile /))
 
           !Set tide-locked flux - should be set by namelist eventually!
-          input_solar_irrad(n_profile) = stellar_constant
+
+          !HII CHANGE TO SCALE BY ZENITH ANGLE BEFORE SOCRATES DOES IT
+          input_solar_irrad(n_profile) = stellar_constant/fms_coszen
           input_t_surf(n_profile) = fms_t_surf!reshape(fms_t_surf(:,:),(/si*sj /))
           z_full_reshaped(n_profile,:) = fms_z_full!reshape(fms_z_full(:,:,:), (/si*sj, sk/))
           z_half_reshaped(n_profile,:) = fms_z_half!reshape(fms_z_half(:,:,:), (/si*sj, sk+1/))
@@ -554,6 +556,9 @@ if(socrates_hires_mode) then
            
        endif
 
+       ! HII HARD CODING THIS VALUE
+       coszen = 1._dp!1._dp/sqrt(3.)
+       
        ozone_in = 0.00_dp
        co2_in = 0.0_dp
 

@@ -1,12 +1,11 @@
 &socrates_rad_nml
-  lw_spectral_filename= "spectral_files/sp_lw_30_sub_nep_final"
-  sw_spectral_filename= "spectral_files/sp_sw_30_sub_nep_final_mstar"
-  stellar_constant = 50.0
-  inc_h2 = .true.
-  inc_co2 = .false.
-  inc_h2o = .true.
-  inc_ch4 = .true.
-  inc_he = .true.
-  rayleigh_sw = .true.
+    lw_spectral_filename = 'spectral_files/sp_lw_30_sub_nep_final'
+    sw_spectral_filename = 'spectral_files/sp_sw_30_sub_nep_final_mstar'
+    stellar_constant = 119.0
+    inc_h2 = .true.
+    inc_co2 = .false.
+    inc_h2o = .true.
+    inc_ch4 = .true.
+    inc_he = .true.
+    rayleigh_sw = .true.
 /
-

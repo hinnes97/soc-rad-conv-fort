@@ -1,92 +1,91 @@
 &control_nml
-  nf = 60
-  matrix_rt = .false.
-  surface = .true.
+    nf = 60
+    matrix_rt = .false.
+    surface = .true.
 /
 
 &initialisation_nml
-  log_top_p = 0.
-  log_bot_p = 5.
-  bot_t = 250.
-  top_t = 250.
-  p_grid = 'hires_trop'
-  frac = 5
+    log_top_p = 0.0
+    log_bot_p = 5.0
+    bot_t = 250.0
+    top_t = 250.0
+    p_grid = 'hires_trop'
+    frac = 5
 /
-  
+
 &io_nml
-  init_from_file = .false.
- input_file ='./mstar8.nc'
-  output_file = 'final_mstar/olr_0.nc'
+    init_from_file = .true.
+    input_file = 'final_mstar_test/olr_16.nc'
+    output_file = 'final_mstar_test/olr_17.nc'
 /
 
 &param_nml
-  rdgas = 3633.
-  grav = 9.8
+    rdgas = 3633.0
+    grav = 9.8
 /
 
 &timestep_nml
-  Nt = 50000
-  const = 0.01
-  del_time = 8640.
-  accelerate = .true.
+    nt = 100000
+    const = 0.01
+    del_time = 21600.0
+    accelerate = .true.
 /
 
 &matrix_nml
-  mat_iters = 100
-  alpha = 1.
-  error_frac = 0.01
+    mat_iters = 100
+    alpha = 1.0
+    error_frac = 0.01
 /
 
 &convection_nml
-  conv_scheme = 'none'
-  passes = 10
-  inhibited = .true.
-  conv_switch = .False.
+    conv_scheme = 'none'
+    passes = 10
+    inhibited = .true.
+    conv_switch = .true.
 /
 
 &radiation_nml
-  Finc = 50.0
-  Fint = 0.
+    finc = 119.0
+    fint = 0.0
 /
 
 &band_grey_nml
-  opacity_dir = '5_band'
-  invert_grid = .false.
-  sw_fac = 1
-  lw_fac = 1
+    opacity_dir = '5_band'
+    invert_grid = .false.
+    sw_fac = 1
+    lw_fac = 1
 /
 
 &semi_grey_nml
-  semi_grey_scheme = 'short_char'
-  kappa_lw = 1.6e-4
-  kappa_sw = 1.e-5
-  moist_rad = .true.
-  kappa_q = 0.007742840658352238
+    semi_grey_scheme = 'short_char'
+    kappa_lw = 0.00016
+    kappa_sw = 1e-05
+    moist_rad = .true.
+    kappa_q = 0.007742840658352238
 /
 
 &moisture_nml
-  moisture_scheme = 'surface'
-  q0 = 0.1
+    moisture_scheme = 'surface'
+    q0 = 0.1
 /
 
 &surface_nml
-  cp_s = 3989.
-  rho_s = 1035.
-  A_s  = 0.12
-  depth = 1.
-  surf_const = 0.001
-  U = 10.0
-  C_d = 0.001
-  sensible_heat = .false.
+    cp_s = 3989.0
+    rho_s = 1035.0
+    a_s = 0.12
+    depth = 1.0
+    surf_const = 0.001
+    u = 10.0
+    c_d = 0.001
+    sensible_heat = .false.
 /
 
 &bg_nml
-  solar_constant = 342
-  do_normal_integration_method=.false.
-  kRoss_scheme_V = .true.
-  kRoss_scheme_IR=.true.
-  nV_b = 3
-  nIR_b = 2
-  reference_slp = 1.e7
+    solar_constant = 200
+    do_normal_integration_method = .false.
+    kross_scheme_v = .true.
+    kross_scheme_ir = .true.
+    nv_b = 3
+    nir_b = 2
+    reference_slp = 10000000.0
 /
-

@@ -12,6 +12,7 @@ module timestep
   implicit none
 
   integer :: counter
+  real(dp) :: g_conv_old
 contains
   subroutine step(Tf, pf, pe, file_name, q, Ts)
     !====================================================================================
@@ -86,6 +87,7 @@ contains
     if (conv_switch) conv_start_step = 0
     if (sensible_heat) accelerate = .false.
     counter = 0
+    g_conv_old = -33.
 
     write(*,*) 'SENSIBLE HEAT', sensible_heat
     writE(*,*) 'ACCELERATE', accelerate
@@ -116,7 +118,8 @@ contains
 
        ! Check to see whether to enter next phase of model run
        call check_convergence(net_F, sens, Tf, pf, Te, pe, dry_mask, conv_switch, sensible_heat, &
-                              accelerate, conv_start_step, stop_switch, j, dflux, Ts,ktrop, dflux_surf)
+            accelerate, conv_start_step, stop_switch, j, dflux, Ts,ktrop, dflux_surf, &
+            dT)
        
        if (mod(j,print_interval) .eq. 0) then
           call print_update(j, dflux, net_F, dT, Ts, dry_mask, conv_switch, sensible_heat, dflux_surf)
@@ -359,7 +362,8 @@ contains
      end subroutine single_step
 
      subroutine check_convergence(net_F, sens, Tf, pf, Te,pe,dry_mask, conv_switch, sensible_heat, &
-                                 accelerate, conv_start_step, stop_switch, tstep, dflux, Ts, ktrop, dflux_surf)
+          accelerate, conv_start_step, stop_switch, tstep, dflux, Ts, ktrop, dflux_surf,&
+          dT)
        !====================================================================================
        ! Input variables
        !====================================================================================
@@ -367,7 +371,7 @@ contains
        
        real(dp), intent(in) :: sens, dflux_surf      ! Sensible heat
 
-       real(dp), intent(in) :: pf(nf), pe(ne)
+       real(dp), intent(in) :: pf(nf), pe(ne), dT(nf)
        
        logical, intent(in) :: dry_mask(nf)
 
@@ -397,7 +401,7 @@ contains
        !====================================================================================
        
        integer :: i,j
-       real(dp) :: t1,t2,t3
+       real(dp) :: g_conv, dew_pt_surf
        logical :: kink
        
        dflux = 0.0
@@ -427,7 +431,7 @@ contains
                 endif
              enddo
              
-             if (kink .and. counter .lt. 5) then
+             if (kink .and. counter .lt. 2) then
                 counter = counter + 1
                 call kink_smoother(pf,Tf)
                 call interp_to_edges(pf,pe,Tf,Te)
@@ -449,7 +453,41 @@ contains
           call interp_to_edges(pf,pe,Tf,Te)
        endif
        
+       ! See what the max dT is and stop if at 5, restart with smaller timestep
+       if (sensible_heat .and. tstep-conv_start_step .gt. 100 .and. maxval(abs(dT)) .gt. 4.999) then
+          write(*,*) 'Program not converging, restart with smaller timestep'
+          stop 99
+       endif
 
+       ! Check to see if the surface q is 1 and global convergence stuck
+       if (sensible_heat .and. tstep-conv_start_step .gt. 100) then
+          ! Check if global convergence same as 500 ago
+          if (mod(tstep,500) .eq. 0) then
+                g_conv_old = abs((net_F(1) - Fint)/Finc)
+          else if (mod(tstep, 500) .eq. 499) then
+             g_conv = abs((net_F(1) - Fint)/Finc)
+             call dew_point_T(pe(ne), dew_pt_surf)
+             if (abs(g_conv - g_conv_old) .lt. 1.e-4 .and. abs(Ts - dew_pt_surf) .lt. 1.e-5) then
+                write(*,*) 'Surface now at q = 1, retry with lower Finc increment'
+                stop 100
+             endif
+          endif
+       endif
+       
+       if ( .not. sensible_heat .and. tstep - conv_start_step .gt. 100) then
+          ! Check to see if surface is stuck at dew point
+          if (mod(tstep,1000) .eq. 0) then
+                g_conv_old = Ts
+          else if (mod(tstep, 1000) .eq. 999) then
+             call dew_point_T(pe(ne), dew_pt_surf)
+             if (abs(g_conv_old - dew_pt_surf) .lt. 1.e-5 .and. abs(Ts - dew_pt_surf) .lt. 1.e-5) then
+                write(*,*) 'Surface now at q = 1, retry with pure timestepping'
+                stop 101
+             endif
+          endif
+       endif
+       
+       
      end subroutine check_convergence
 
      subroutine kink_smoother(pf, Tf)
