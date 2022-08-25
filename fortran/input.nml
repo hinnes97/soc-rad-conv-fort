@@ -5,7 +5,7 @@
 /
 
 &initialisation_nml
-  log_top_p = 1.
+  log_top_p = 0.
   log_bot_p = 5.
   bot_t = 250.
   top_t = 250.
@@ -15,8 +15,8 @@
   
 &io_nml
   init_from_file = .false.
- input_file ='inhibited_output_timestep/olr_2.nc'
-  output_file = './test.nc'
+ input_file ='./mstar8.nc'
+  output_file = 'final_mstar/olr_0.nc'
 /
 
 &param_nml
@@ -27,7 +27,7 @@
 &timestep_nml
   Nt = 50000
   const = 0.01
-  del_time = 40000.
+  del_time = 8640.
   accelerate = .true.
 /
 
@@ -41,6 +41,7 @@
   conv_scheme = 'none'
   passes = 10
   inhibited = .true.
+  conv_switch = .False.
 /
 
 &radiation_nml
@@ -71,11 +72,12 @@
 &surface_nml
   cp_s = 3989.
   rho_s = 1035.
-  A_s  = 0.0
+  A_s  = 0.12
   depth = 1.
   surf_const = 0.001
   U = 10.0
   C_d = 0.001
+  sensible_heat = .false.
 /
 
 &bg_nml

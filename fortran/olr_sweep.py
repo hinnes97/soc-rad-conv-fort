@@ -2,16 +2,20 @@ import numpy as np
 import os
 import xarray as xr
 S_vec = np.arange(50.,150.,5.)
+S_vec = np.r_[np.arange(50.,115.,5.), 111.,112.,112.5]
 
-
-directory = 'inhibited_output_timestep'
+directory = 'final_mstar'
 os.system('mkdir '+directory)
 
 for i,S in enumerate(S_vec):
+    if i<0:
+        continue
     fname = f'olr_{i}'
     input_file = f'olr_{i-1}.nc'
-    command = 'python run.py ' + directory + ' ' + fname + ' ' + str(S) + ' ' + input_file
-    
+    if i==0:
+        command = 'python run.py ' + directory + ' ' + fname + ' ' + str(S) + ' ' + input_file  + ' 0'
+    else:
+       command = 'python run.py ' + directory + ' ' + fname + ' ' + str(S) + ' ' + input_file  + ' 1' 
     os.system(command)
     test = xr.open_dataset(directory+'/'+fname+'.nc')
     toa = (test.fup[0] + test.s_up[0] - test.fdn[0] - test.s_dn[0])/S

@@ -18,7 +18,7 @@ module adjust_mod
 contains
 
 
-  subroutine calc_q_and_grad(p, delp, T, q, mask, olr, grad, ktrop)
+  subroutine calc_q_and_grad(p, delp, T, q, mask, olr,ktrop)
     !==========================================================================
     ! Description
     !==========================================================================
@@ -46,7 +46,6 @@ contains
     ! Output variables
     !==========================================================================
     logical, intent(in),dimension(:) :: mask ! True where adiabatic
-    real(dp), intent(out), dimension(:) :: grad
     integer, intent(out) :: ktrop
     !==========================================================================
     ! Mixed input/output
@@ -84,12 +83,6 @@ contains
     call q_sat(p, T, q)
     call cold_trap(q, ktrop, p, T)
     
-        do k=npz-1,ktrop,-1
-           
-           call gradient(p(k+1), T(k+1), grad_temp)
-           grad(k) = grad_temp
-
-        enddo
    end subroutine calc_q_and_grad
 
 

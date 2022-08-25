@@ -31,7 +31,6 @@ program main
   integer :: i
 
   ! Initialise parameters and allocate arrays
-  write(*,*) 'BEFORE READ CONSTANTS'
   call read_constants()
   call allocate_arrays(Tf, pf, pe, Te, q)
 
@@ -43,7 +42,6 @@ program main
   call bg_init(nf)
 #endif
 
-  write(*,*) 'HERE'
   !Initialise output file
   call file_setup(output_file, nf, ne, ncid)
 
@@ -112,37 +110,19 @@ program main
            Te(i) = top_t
         endif
      enddo
-     write(*,*) (Tf(i), i=1,nf)
-     write(*,*) (Te(i), i=1,nf+1)
-     !q = 1.
 
      Ts = Te(ne)
-     write(*,*) 'Ts', Ts
   endif
   
-  write(*,*) 'Before start'
   if (matrix_rt) then
      write(*,*) 'matrix method'
      ! Do matrix method
      call do_matrix(nf, ne, Tf, pf, Te, pe, 1.0_dp, Finc, Fint, olr,q, Ts)
   else
      ! Do timestepping
-     write(*,*) 'Timestepping'
      call cpu_time(start)
      call step(Tf, pf, pe, output_file ,q, Ts)
      call cpu_time(end)
-     write(*,*) 'TIME ELAPSED: ', end - start
-
-     ! Interpolate to Te
-     do i=2,nf-1
-        call bezier_interp(pf(i-1:i+1), Tf(i-1:i+1), 3, pe(i), Te(i))
-        !call linear_log_interp(pe(i), pf(i-1), pf(i), Tf(i-1), Tf(i), Te(i))
-     enddo
-     call bezier_interp(pf(nf-2:nf), Tf(nf-2:nf), 3, pe(nf), Te(nf))
-     call linear_log_interp(pe(1), pf(1), pf(2), Tf(1), Tf(2), Te(1))
-     call linear_log_interp(pe(ne), pf(nf-1), pf(nf), Tf(nf-1), Tf(nf), Te(ne) )
-     Te(ne) = Ts
-     write(*,*) Tf
   endif
   
   call deallocate_arrays(Tf, pf, pe,Te)

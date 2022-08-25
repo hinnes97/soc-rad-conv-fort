@@ -7,6 +7,7 @@ parser.add_argument('direc', type=str)
 parser.add_argument('f_name', type=str)
 parser.add_argument('S', type = float)
 parser.add_argument('input_file',type=str)
+parser.add_argument('conv_switch', type=int)
 args = parser.parse_args()
 
 # Experiment name
@@ -47,9 +48,11 @@ with open(readme_file, 'w') as f:
 sed_1 = 'sed -i "s|^\s*output_file.*|  output_file = \'' + output_dir + '/' + output_file + '\'|g" input.nml'
 sed_2 = 'sed -i "s|^\s*Finc.*|  Finc = ' + str(args.S) + '|g" input.nml'
 sed_3 = 'sed -i "s|^\s*stellar_constant.*|  stellar_constant = ' + str(args.S) + '|g" input_soc.nml'
+sed_4 = 'sed -i "s|^\s*conv_switch.*|  conv_switch = ' + '.'+str(bool(args.conv_switch))+'.' + '|g" input.nml'
 os.system(sed_1)
 os.system(sed_2)
 os.system(sed_3)
+os.system(sed_4)
 
 if os.path.isfile(args.direc+'/'+args.input_file):
     sed_3 = 'sed -i "s|^\s*init_from_file.*|  init_from_file = .true.|g" input.nml'

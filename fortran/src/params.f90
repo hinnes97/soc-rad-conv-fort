@@ -118,6 +118,8 @@ module params
   integer :: passes
   ! Whether to include moisture inhibition
   logical :: inhibited = .false.
+  ! Whether to start with convection or not
+  logical :: conv_switch = .false.
   
   ! -----------------------------------------------------------------------------
   !                           ATMOSPHERIC PARAMETERS
@@ -169,6 +171,8 @@ module params
   real(dp) :: depth = 1.
   ! Characteristic surface wind speed
   real(dp) :: U = 10.! Pierrehumbert 2011 value
+  ! Whether to do turbulent heat transfer
+  logical :: sensible_heat
   
   namelist /control_nml/ nf, matrix_rt, surface
   namelist /initialisation_nml/ log_top_p, log_bot_p, bot_t, top_t, p_grid, frac
@@ -176,12 +180,12 @@ module params
   namelist /param_nml/ rdgas, grav, cpair, Rcp
   namelist /timestep_nml/ Nt, const, del_time, accelerate
   namelist /matrix_nml/ mat_iters, alpha, error_frac
-  namelist /convection_nml/ conv_scheme, passes, inhibited
+  namelist /convection_nml/ conv_scheme, passes, inhibited, conv_switch
   namelist /radiation_nml/ Finc, Fint 
   namelist /band_grey_nml/ opacity_dir, invert_grid,sw_fac, lw_fac
   namelist /semi_grey_nml/ kappa_lw, kappa_sw, moist_rad, kappa_q, semi_grey_scheme
   namelist /moisture_nml/ moisture_scheme, q0
-  namelist /surface_nml/ cp_s, A_s, surf_const, C_d, depth, U, rho_s
+  namelist /surface_nml/ cp_s, A_s, surf_const, C_d, depth, U, rho_s, sensible_heat
   
   
 contains

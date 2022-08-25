@@ -28,7 +28,7 @@ contains
     integer :: status
     integer :: pf_dim_id, pe_dim_id
     integer :: tf_id, pf_id, pe_id, olr_id, tau_ir_inf_id, tau_v_inf_id, te_id, q_id
-    integer :: finc_id, fint_id, fdn_id, fup_id, sdn_id, Ts_id, sup_id
+    integer :: finc_id, fint_id, fdn_id, fup_id, sdn_id, Ts_id, sup_id, dm_id
 
     ! Create output file
     status = nf90_create(path, 0, ncid)
@@ -71,7 +71,8 @@ contains
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_def_var(ncid, "Ts", nf90_double, Ts_id)
     if (status /= nf90_noerr) call handle_err(status)
-
+    status = nf90_def_var(ncid, "dry_mask", nf90_int,pf_dim_id, dm_id)
+    if (status /= nf90_noerr) call handle_err(status)
 
 
     ! Create attributes
@@ -136,6 +137,8 @@ contains
     status = nf90_put_att(ncid, Ts_id, "Long name", "Surface temperature")
     if (status /= nf90_noerr) call handle_err(status)
 
+    status = nf90_put_att(ncid, dm_id, "Long name", "Dry convection mask")
+    if (status /= nf90_noerr) call handle_err(status)
 
 
     ! End file definition
@@ -145,14 +148,16 @@ contains
   end subroutine file_setup
 
   subroutine dump_data(file_name, nf, ne, Tf, pf, pe, olr, Finc, Fint, Te, q, fup, fdn, s_dn, &
-       s_up, Ts)
+       s_up, Ts, dry_mask)
     character(*), intent(in) :: file_name
     integer, intent(in) :: nf, ne
     real(dp), intent(in), dimension(nf) :: Tf,pf, q
     real(dp), intent(in), dimension(ne) :: te,pe, fdn, fup, s_dn, s_up
     real(dp), intent(in) :: olr, Finc, Fint, Ts
-    
+
+    logical, intent(in), dimension(nf) :: dry_mask
     integer :: dummy_id, status, k,ncid
+    integer :: dry_mask_dummy(nf), i
 
     status = nf90_open(file_name, nf90_write, ncid)
     if (status /= nf90_noerr) call handle_err(status)
@@ -223,6 +228,16 @@ contains
     status = nf90_put_var(ncid, dummy_id, Ts)
     if (status /= nf90_noerr) call handle_err(status)
 
+    dry_mask_dummy = 0
+    do i=1,nf
+       if (dry_mask(i)) dry_mask_dummy(i) = 1
+    enddo
+    
+    status = nf90_inq_varid(ncid, "dry_mask", dummy_id)
+    if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_put_var(ncid, dummy_id, dry_mask_dummy)
+    if (status /= nf90_noerr) call handle_err(status)
+
     call close_file(ncid)
 
   end subroutine dump_data
@@ -253,7 +268,7 @@ contains
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_inq_varid(ncid, 'pedge', id_pe)
     if (status /= nf90_noerr) call handle_err(status)
-
+    
     status = nf90_get_var(ncid, id_tf, Tf)
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_get_var(ncid, id_te, Te)
