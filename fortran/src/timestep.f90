@@ -12,7 +12,8 @@ module timestep
   implicit none
 
   integer :: counter
-  real(dp) :: g_conv_old
+  real(dp) :: g_conv_old, dflux_surf_old
+  real(dp) :: ts_conv_old
 contains
   subroutine step(Tf, pf, pe, file_name, q, Ts)
     !====================================================================================
@@ -454,24 +455,35 @@ contains
        endif
        
        ! See what the max dT is and stop if at 5, restart with smaller timestep
-       if (sensible_heat .and. tstep-conv_start_step .gt. 100 .and. maxval(abs(dT)) .gt. 4.999) then
-          write(*,*) 'Program not converging, restart with smaller timestep'
-          stop 99
+       if (sensible_heat .and. tstep-conv_start_step .gt. 100) then
+          if (mod(tstep,500) .eq. 0) then
+             ts_conv_old = maxval(abs(dT))
+          else if (mod(tstep,500) .eq. 499 ) then
+             if (ts_conv_old .gt. 4.999 .and. maxval(abs(dT)) .gt. 4.999) then
+                write(*,*) 'Program not converging, restart with smaller timestep'
+                stop 99
+             endif
+          endif
        endif
 
        ! Check to see if the surface q is 1 and global convergence stuck
        if (sensible_heat .and. tstep-conv_start_step .gt. 100) then
           ! Check if global convergence same as 500 ago
           if (mod(tstep,500) .eq. 0) then
-                g_conv_old = abs((net_F(1) - Fint)/Finc)
+             dflux_surf_old = dflux_surf
+             g_conv_old = abs((net_F(1) - Fint)/Finc)
           else if (mod(tstep, 500) .eq. 499) then
              g_conv = abs((net_F(1) - Fint)/Finc)
              call dew_point_T(pe(ne), dew_pt_surf)
-             if (abs(g_conv - g_conv_old) .lt. 1.e-4 .and. abs(Ts - dew_pt_surf) .lt. 1.e-5) then
+             if (abs((dflux_surf - dflux_surf_old)/dflux_surf_old) .lt. 1.e-4 .and. abs(Ts - dew_pt_surf) .lt. 1.e-5) then
                 write(*,*) 'Surface now at q = 1, retry with lower Finc increment'
                 stop 100
              endif
           endif
+       endif
+
+       if (tstep .gt. 10000 .and. abs(Ts - dew_pt_surf) .lt. 1.e-5) then
+          stop 100
        endif
        
        if ( .not. sensible_heat .and. tstep - conv_start_step .gt. 100) then

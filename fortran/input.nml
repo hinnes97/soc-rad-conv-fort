@@ -6,17 +6,17 @@
 
 &initialisation_nml
     log_top_p = 0.0
-    log_bot_p = 5.0
-    bot_t = 250.0
-    top_t = 250.0
+    log_bot_p = 6.0
+    bot_t = 300.0
+    top_t = 300.0
     p_grid = 'hires_trop'
     frac = 5
 /
 
 &io_nml
     init_from_file = .true.
-    input_file = 'final_mstar_test/olr_16.nc'
-    output_file = 'final_mstar_test/olr_17.nc'
+    input_file = 'final_mstar_new_new/olr_15.nc'
+    output_file = 'final_mstar_new_new/olr_16.nc'
 /
 
 &param_nml
@@ -27,8 +27,8 @@
 &timestep_nml
     nt = 100000
     const = 0.01
-    del_time = 21600.0
-    accelerate = .true.
+    del_time = 5400.
+    accelerate = .false.
 /
 
 &matrix_nml
@@ -45,7 +45,7 @@
 /
 
 &radiation_nml
-    finc = 119.0
+    finc = 120.25
     fint = 0.0
 /
 
@@ -77,7 +77,7 @@
     surf_const = 0.001
     u = 10.0
     c_d = 0.001
-    sensible_heat = .false.
+    sensible_heat = .true.
 /
 
 &bg_nml

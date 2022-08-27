@@ -557,7 +557,7 @@ if(socrates_hires_mode) then
        endif
 
        ! HII HARD CODING THIS VALUE
-       coszen = 1._dp!1._dp/sqrt(3.)
+       coszen = 1._dp/2._dp!1._dp/sqrt(3.)
        
        ozone_in = 0.00_dp
        co2_in = 0.0_dp
