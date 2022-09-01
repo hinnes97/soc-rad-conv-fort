@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --output=final_mstar_2.out
-#SBATCH --error=final_mstar_2.err
+#SBATCH --output=final_mstar_10bar.out
+#SBATCH --error=final_mstar_10bar.err
 #SBATCH --partition=priority-rp
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH -w atmnode022
+#SBATCH -w atmnode004
 #SBATCH --mem-per-cpu=1000
 
-python -u olr_sweep.py
+stdbuf -o0 -e0 python -u olr_sweep.py
 

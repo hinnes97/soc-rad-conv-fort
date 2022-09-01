@@ -160,7 +160,7 @@ contains
           call gradient(p(k+1),T(k+1),grad(k))
           qcrit = (Rstar/mu_v)* T(k+1)/L_vap/(1._dp - mu_d/mu_v)
           if (n.eq. 1) then
-             f = (Finc/olr)**(0.01_dp)
+             f =  (Finc/olr)**(0.01_dp)
           else
              f = 1.
           endif

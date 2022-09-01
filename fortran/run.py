@@ -33,6 +33,7 @@ os.system('cat input.nml > ' + log_file)
 with open(log_file, 'a') as f:
     proc = subprocess.Popen(['./main.exe'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True)
+
     for line in proc.stdout:
         sys.stdout.write(line)
         f.write(line)

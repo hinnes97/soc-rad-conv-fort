@@ -13,7 +13,7 @@ module timestep
 
   integer :: counter
   real(dp) :: g_conv_old, dflux_surf_old
-  real(dp) :: ts_conv_old
+  real(dp) :: ts_conv_old, ts_old
 contains
   subroutine step(Tf, pf, pe, file_name, q, Ts)
     !====================================================================================
@@ -85,7 +85,7 @@ contains
     dT = 0._dp
     dt_surf = 0._dp
     dry_mask = .false.
-    if (conv_switch) conv_start_step = 0
+    conv_start_step = 0.
     if (sensible_heat) accelerate = .false.
     counter = 0
     g_conv_old = -33.
@@ -225,14 +225,13 @@ contains
           if (accelerate) then
           
              time_const = factor(i) * pf(nf) / max((abs(net_F(i+1) - net_F(i))*1000. ), 1.e-30)**0.9 / (pe(ne) - pe(nf))
-
+             
           else
              time_const = grav/cpair/(pe(i+1) - pe(i))*del_time
           endif ! if accelerate
-        
-        
+
           dT(i) = time_const*(net_F(i+1) - net_F(i))
-          
+
           if (dT(i)>5.0_dp) then
              dT(i) = 5.0_dp
           endif
@@ -264,7 +263,7 @@ contains
 
     
        flux_diff(:) = 0.
-    
+       sens = 0.
        do i=1,nf
           if (accelerate) then
 
@@ -275,13 +274,42 @@ contains
              
                 ! Do turbulent heat exchange between surface and lowest atmospheric layer
                 Sens = cpair*pf(nf)/rdgas/Tf(nf) * C_d * U * (Tf(nf) - Ts)
-                Sens = 0
+                
+                !Sens = 0
                 df_surf = ( s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens)
+                !write(*,*) df_surf, flux_diff(nf), time_const, dT(nf)
                 dflux_surf = df_surf/sb/Ts**4
+                
+                flux_diff(i) = flux_diff(i)  - Sens
+                dT_surf = factor_surf * pf(nf)/(abs(df_surf)*1000.)**0.9/(pe(ne) - pe(nf)) * (df_surf)
 
+                !dT_surf = dT_surf + Sens * & 
+                !     factor(i) * pf(nf) / max((abs(Sens)*1000. ), 1.e-30)**0.9 / (pe(ne) - pe(nf)) /&
+                !     grav/rho_s/cp_s*cpair/depth*(pe(ne) - pe(nf))
 
-                dT_surf = factor_surf * pf(nf)/(abs(df_surf)*1000.)**0.9/(pe(ne) - pe(nf)) * df_surf
-                     
+                !dT_surf = factor(i) * pf(nf) /max((abs(flux_diff(i))*1000.),1.e-30)**0.9/(pe(ne) - pe(nf)) * df_surf&
+                !     /grav/rho_s/cp_s*cpair/depth * (pe(ne) - pe(nf))
+                !if (mod (tstep, 100) .eq. 0) write(*,*) 'factor_surf', factor_surf, Ts, Tf(nf)
+
+                !dT_surf = (df_surf-Sens)*pf(nf)/(abs(df_surf-Sens)*1000.)**0.9/(pe(ne) - pe(nf)) * factor_surf&
+                !     + Sens*factor(nf)* (cpair/cp_s/grav/rho_s * (pe(ne) - pe(nf))/depth) &
+                !     * pf(nf)/(abs(Sens)*1000.)**0.9/(pe(ne) - pe(nf))
+                !dT_surf = factor(nf) * (cpair/cp_s/grav/rho_s * (pe(ne) - pe(nf))/depth) * &
+                !     pf(nf)/(abs(df_surf)*1000.)**0.9/(pe(ne) - pe(nf)) * df_surf
+                
+!                if (tstep .eq. 6076) write(*,*) 'Sens', Sens, dT_surf
+
+                 ! if (mod(tstep,100) .eq. 0) then
+                 !    write(*,*) dT_surf, factor(i) * pf(nf) / max((abs(flux_diff(nf))*1000. ), 1.e-30)**0.9 / (pe(ne) - pe(nf)) * &
+                 !         flux_diff(nf), dT_surf/(factor(i) * pf(nf) / max((abs(flux_diff(nf))*1000. ), 1.e-30)**0.9 / &
+                 !         (pe(ne) - pe(nf)) * flux_diff(nf))
+                 !   write(*,*) ( s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens)&
+                 !         /cp_s/rho_s/depth * del_time, grav/cpair/(pe(i+1) - pe(i))*del_time*&
+                 !         flux_diff(nf), ( s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens)&
+                 !         /cp_s/rho_s/depth * del_time/(grav/cpair/(pe(i+1) - pe(i))*del_time*&
+                 !         flux_diff(nf))
+                 ! endif
+                
                 Ts = Ts + dT_surf
                 call dew_point_T(pe(ne), dew_pt)
                 if (Ts .gt. dew_pt) then
@@ -301,10 +329,40 @@ contains
              time_const = grav/cpair/(pe(i+1) - pe(i))*del_time
              flux_diff(i) = flux_diff(i) + net_F(i+1) - net_F(i)
           endif
+          
 
+          if ((surface) .and. sensible_heat .and. i .eq. nf) then
+             dT_surf = 0.
+             ! Do turbulent heat exchange between surface and lowest atmospheric layer
+             Sens = cpair*pf(nf)/rdgas/Tf(nf) * C_d * U * (Tf(nf) - Ts)
+             
+             !Sens = 0
+             dT_surf = ( s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens)/cp_s/rho_s/depth * del_time
+             dflux_surf = (s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens)/sb/Ts**4
+
+!             write(*,*)Sens, (s_dn(ne)*(1-A_s) - fup(ne)  + fdn(ne)), Sens/(s_dn(ne)*(1-A_s) - fup(ne)  + fdn(ne)),&
+             !                  pf(nf)/rdgas/Tf(nf), (Tf(nf) - Ts)
+             !write(*,*) s_dn(ne)*(1-A_s) - fup(ne)  + fdn(ne) + Sens, flux_diff(nf), time_const, dT(nf)
+             
+             if (abs(dT_surf) .gt. 5) then
+                dT_surf = 5* dT_surf/abs(dT_surf)
+             endif
+
+             if (tstep .eq. 6077) write(*,*) 'Sens', sens, dT_surf
+!             Tf(nf) = Tf(nf)  - Sens*grav/cpair/(pe(ne) - pe(ne-1))*del_time
+
+             flux_diff(nf) = flux_diff(nf) - Sens
+             Ts = Ts + dT_surf
+             call dew_point_T(pe(ne), dew_pt)
+             if (Ts .gt. dew_pt) then
+                Ts = dew_pt
+             endif
+          endif
 
           dT(i) = time_const*flux_diff(i)
+          !if ((tstep .eq. 6076 .or. tstep .eq. 6077) .and. i .eq. nf) write(*,*) 'time const', time_const, flux_diff(i), dT(i)
 
+          !if (mod(tstep,100) .eq. 0 .and. i .eq. nf) write(*,*) dT_surf, dT(nf), dT_surf/dT(nf)
           if (dT(i)>5.0_dp) then
              dT(i) = 5.0_dp
           endif
@@ -321,27 +379,7 @@ contains
           end if
 
        end do !i=1,nf
-
-       if ((surface) .and. sensible_heat) then
-          dT_surf = 0.
-          ! Do turbulent heat exchange between surface and lowest atmospheric layer
-          Sens = cpair*pf(nf)/rdgas/Tf(nf) * C_d * U * (Tf(nf) - Ts)
-          !Sens = 0
-          dT_surf = ( s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens)/cp_s/rho_s/depth * del_time
-          dflux_surf = (s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens)/sb/Ts**4
-          if (abs(dT_surf) .gt. 5) then
-             dT_surf = 5* dT_surf/abs(dT_surf)
-          endif
-
-          Tf(nf) = Tf(nf)  - Sens*grav/cpair/(pe(ne) - pe(ne-1))*del_time
-          Ts = Ts + dT_surf
-          call dew_point_T(pe(ne), dew_pt)
-          if (Ts .gt. dew_pt) then
-             Ts = dew_pt
-          endif
-       else
-          Sens = 0.0
-       endif
+       
 
 
        if (conv_switch) then
@@ -420,28 +458,47 @@ contains
           endif
        enddo
 
-       if (abs((net_F(1) - Fint)/Finc) .lt. 1.e-5 .and. maxval(abs(dflux))< 1.e-5) then
+       if (abs((net_F(1) - Fint)/Finc) .lt. 1.e-5 .and. maxval(abs(dflux))< 1.e-5 .and. abs(dflux_surf) .lt. 1.e-5) then
           if (.not. conv_switch) then
              conv_switch = .true.
              conv_start_step = tstep
-          else if ((.not. sensible_heat .and. tstep  - conv_start_step .gt. 100))then
+          else if ((.not. sensible_heat .and. tstep  - conv_start_step .gt. 100)) then
+             !write(*,*) 'Global and other flux satisfied'
              kink = .false.
-             do i=1,nf-3
-                if ( (Tf(i+1) - Tf(i))*(Tf(i+2)- Tf(i+1))*(Tf(i+3)-Tf(i+2)) .lt. 0) then
-                   kink = .true.
-                endif
-             enddo
+             counter = 0
+             !do i=1,nf-3
+             !   if ( (Tf(i+1) - Tf(i))*(Tf(i+2)- Tf(i+1))*(Tf(i+3)-Tf(i+2)) .lt. 0) then
+             !      kink = .true.
+             !   endif
+             !enddo
              
              if (kink .and. counter .lt. 2) then
                 counter = counter + 1
                 call kink_smoother(pf,Tf)
                 call interp_to_edges(pf,pe,Tf,Te)
              else
-                sensible_heat = .true.
-                accelerate = .false.
-                conv_start_step = tstep
+                !sensible_heat = .true.
+                !accelerate = .false.
+                !conv_start_step = tstep
+                !stop_switch = .false.
+                !write(*,*) 'MOVING ON', tstep
+
+                if (mod(tstep,1000) .eq. 0) then
+                   ts_old = Ts
+                   write(*,*) 'RECORDING TS', ts_old
+                else if (mod(tstep,1000) .eq. 999 ) then
+                   write(*,*) 'CHECKING TS', ts_old, Ts, abs(Ts - ts_old)/ts_old
+                   if ( abs(Ts - ts_old)/ts_old .lt. 1.e-5) then
+                      sensible_heat = .true.
+                      accelerate = .false.
+                      stop_switch = .true.
+                      conv_start_step = tstep
+                   endif
+                endif
+                
              endif
-          else if (sensible_heat .and. tstep - conv_start_step .gt. 100 .and. abs(dflux_surf).lt. 1.e-5) then
+
+          else if (sensible_heat .and. tstep - conv_start_step .gt. 1000 .and. abs(dflux_surf).lt. 1.e-5) then
              stop_switch = .true.
           endif
        endif
@@ -499,6 +556,7 @@ contains
           endif
        endif
        
+       if ( tstep .gt. 10000 .and. .not. conv_switch) conv_switch = .true.
        
      end subroutine check_convergence
 
@@ -603,13 +661,13 @@ contains
     ! Main body
     !====================================================================================
 
-    fmt = '(I15,3(1PE15.3),0PF15.3,2L15,1PE10.3)'
+    fmt = '(I15,3(1PE15.3),0PF15.3,2L15,1PE10.3,I5)'
     imax=nf
     do i=nf,1,-1
        if (dry_mask(i)) imax = i
     enddo
     write(*,fmt) tstep, maxval(abs(dflux)), (net_F(1) - Fint)/Finc, maxval(abs(dT)), Ts, conv_switch, sensible_heat,&
-         abs(dflux_surf)
+         abs(dflux_surf), maxloc(abs(dflux))
 
   end subroutine print_update
 
@@ -679,32 +737,49 @@ contains
 
     integer :: i
 
-    do i=1,nf
+   do i=1,nf
     if (factor(i) .lt. 0) then
        factor(i) = 1.e-2
     endif
 
-    if (mod(tstep,10000) .eq. 0) then
-       factor(i) = 1.e-1
+!    if (mod(tstep,10000) .eq. 0) then
+!       factor(i) = 1.e-1
+!    endif
+
+    if (factor_surf .lt. 0.) factor_surf = 1.e-3
+    if (mod(tstep,6) .eq. 0) then
+       t_surf_old = ts
     endif
 
-    
     if (mod(tstep,6) .eq. 0) then
        dT_old(i) = Tf(i)
     endif
 
     if (mod(tstep,6) .eq. 5) then
-       if ( abs(Tf(i) - dT_old(i)) .lt. 3.*abs(dT(i))) then
-          factor(i) = factor(i)/1.5
+
+       if (i .eq. nf) then
+          if (abs(Tf(i) - dT_old(i)) .lt. 3.*abs(dT(i))) then
+          
+             factor(i) = factor(i)/1.5
+          else
+             factor(i) = factor(i) * 1.1
+          endif
        else
-          factor(i) = factor(i)*1.1
+          
+          if ( abs(Tf(i) - dT_old(i)) .lt. 3.*abs(dT(i))) then
+             factor(i) = factor(i)/1.5
+          else
+             factor(i) = factor(i)*1.1
+          endif
        endif
+
     endif
+    
     if (factor(i) .lt. 1.e-10) factor(i) = 1.e-10
     enddo
 
 
-    if (factor_surf .lt. 0.) factor_surf = 1.e-3
+    
 
     if (mod(tstep,6) .eq. 0) then
        t_surf_old = ts
@@ -718,9 +793,9 @@ contains
        if (factor_surf .lt. 1.e-10) factor_surf = 1.e-10
     endif
 
-    if (mod(tstep,10000) .eq. 0) then
-       factor_surf = 1.e-2
-    endif
+!    if (mod(tstep,10000) .eq. 0) then
+!       factor_surf = 1.e-2
+!    endif
     
   end subroutine alter_timestep
   

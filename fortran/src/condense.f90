@@ -113,7 +113,7 @@ contains
          
        if (q(j) .lt. q_min) then
           q_min = q(j)
-       else
+       else if (p(j) .lt. 9.*p(nf)/10.) then
           q(1:j) = q_min
           ktrop = j+1
           exit
