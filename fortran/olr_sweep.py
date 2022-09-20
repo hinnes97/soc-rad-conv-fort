@@ -8,15 +8,15 @@ import sys
 S_vec = np.arange(50.,150.,5.)
 S_vec = np.r_[np.arange(50.,130.,5.)]
 
-directory = 'final_mstar_10bar'
-spectral_file_lw = 'spectral_files/sp_lw_30_sub_nep_final'
-spectral_file_sw = 'spectral_files/sp_sw_30_sub_nep_final_mstar'
+directory = 'mstar_tweak'
+spectral_file_lw = '../../matrixrt/fortran/spectral_files/sp_lw_30_sub_nep_tweak'
+spectral_file_sw = '../../matrixrt/fortran/spectral_files/sp_sw_30_sub_nep_final_mstar'
 
 os.system('mkdir '+directory)
-S_start = 21.5
-S_inc = 0.5
+S_start = 10.0
+S_inc = 0.25
 S_vec = []
-i = 7
+i = 0
 tstep_init = 43200.
 S_value = S_start
 start = True
@@ -25,6 +25,7 @@ pure_timestep = False
 
 counter = 0
 while True:
+    
     #if S_value < 22.9 and start:
     #    i = i+1
     #    S_vec.append(S_value)
@@ -86,10 +87,19 @@ while True:
 
     if proc.returncode != 0:
         nml = f90nml.read('input.nml')
+        print('Before', S_value, S_inc)
         S_inc_new = S_inc/2
 
         S_value = S_value - S_inc + S_inc_new
         S_inc = S_inc_new
+        print('After', S_value, S_inc)
+
+        counter +=1
+        if S_inc<0.0001:
+            break
+        if counter>50:
+            print('Stuck in loop')
+            break
         continue
         
     # if proc.returncode==99 or proc.returncode ==100:
@@ -163,6 +173,7 @@ while True:
         break
 
     i+=1
+    counter+=1
     S_value += S_inc
     tstep = tstep_init
 

@@ -78,8 +78,9 @@ program main
         !call linspace(9./10. * 10**log_bot_p, 10**(log_bot_p),pe((ne - ne/frac):ne))
         !call logspace(log_top_p, 9./10.*log_bot_p, pe(1:(ne-ne/frac-1)), .false.)
         
-        call linspace(9./10.* 10.**log_bot_p, 10.**(log_bot_p), pe((ne - ne/frac):ne))
-        call logspace(log_top_p, log10(0.9) + log_bot_p, pe(1:(ne-ne/frac-1)), .false.)
+        !call linspace(5./10.* 10.**log_bot_p, 10.**(log_bot_p), pe((ne - ne/frac):ne))
+        call logspace(log10(0.85)+log_bot_p, log_bot_p, pe((ne-ne/frac):ne))
+        call logspace(log_top_p, log10(0.85) + log_bot_p, pe(1:(ne-ne/frac-1)), .false.)
      end select
 
      ! Initialise pf array from pe

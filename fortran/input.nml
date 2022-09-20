@@ -10,13 +10,13 @@
     bot_t = 260.0
     top_t = 100.0
     p_grid = 'hires_trop'
-    frac = 5
+    frac = 3
 /
 
 &io_nml
-    init_from_file = .true.
-    input_file = 'final_mstar_10bar/olr_10.nc'
-    output_file = 'final_mstar_10bar/olr_11.nc'
+    init_from_file = .false.
+    input_file = 'mstar_tweak/olr_0.nc'
+    output_file = 'mstar_tweak/olr_0.nc'
 /
 
 &param_nml
@@ -45,7 +45,7 @@
 /
 
 &radiation_nml
-    finc = 23.5
+    finc = 10.0
     fint = 0.0
 /
 
@@ -81,7 +81,7 @@
 /
 
 &bg_nml
-    solar_constant = 200
+    solar_constant = 22.0
     do_normal_integration_method = .false.
     kross_scheme_v = .true.
     kross_scheme_ir = .true.

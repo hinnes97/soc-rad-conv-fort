@@ -37,6 +37,7 @@ INTEGER :: i
 
 ! Spectral bands
 control%first_band = 1
+! HII changed this factor!!
 control%last_band  = spectrum%basic%n_band
 
 ! Spectral region-specific options

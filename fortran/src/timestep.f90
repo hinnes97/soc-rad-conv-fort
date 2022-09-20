@@ -739,14 +739,21 @@ contains
 
    do i=1,nf
     if (factor(i) .lt. 0) then
-       factor(i) = 1.e-2
+       factor(i) = 1.e-10
     endif
+    
+    !else if (factor(i) .gt. 1.e-2) then
+    !   factor(i) = 1.e-2
+    !endif
+  
 
 !    if (mod(tstep,10000) .eq. 0) then
 !       factor(i) = 1.e-1
 !    endif
 
-    if (factor_surf .lt. 0.) factor_surf = 1.e-3
+    if (factor_surf .lt. 0.) factor_surf = 1.e-10
+    !if (factor_surf .gt. 1.e-2) factor_surf = 1.e-2
+    
     if (mod(tstep,6) .eq. 0) then
        t_surf_old = ts
     endif
@@ -761,15 +768,19 @@ contains
           if (abs(Tf(i) - dT_old(i)) .lt. 3.*abs(dT(i))) then
           
              factor(i) = factor(i)/1.5
+             !factor(i) = factor(i) / 1.05
           else
              factor(i) = factor(i) * 1.1
+             !factor(i) = factor(i) * 1.01
           endif
        else
           
           if ( abs(Tf(i) - dT_old(i)) .lt. 3.*abs(dT(i))) then
              factor(i) = factor(i)/1.5
+             !factor(i) = factor(i) /1.05
           else
              factor(i) = factor(i)*1.1
+             !factor(i) = factor(i)*1.01
           endif
        endif
 
