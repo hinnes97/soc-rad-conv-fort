@@ -14,9 +14,9 @@
 /
 
 &io_nml
-    init_from_file = .false.
-    input_file = 'mstar_tweak/olr_0.nc'
-    output_file = 'mstar_tweak/olr_0.nc'
+    init_from_file = .true.
+    input_file = 'mstar_tweak/olr_17.nc'
+    output_file = 'mstar_tweak/olr_18.nc'
 /
 
 &param_nml
@@ -45,7 +45,7 @@
 /
 
 &radiation_nml
-    finc = 10.0
+    finc = 14.5
     fint = 0.0
 /
 
