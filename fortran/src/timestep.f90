@@ -209,7 +209,7 @@ contains
     real(dp) :: df_surf     ! Net flux at surface
     real(dp) :: olr         ! Outgoing longwave radiation
     real(dp) :: dew_pt      ! Dew point temperature
-
+    real(dp) :: start, stopper, diff
 
     call interp_to_edges(pf, pe, Tf, Te)
     if (surface)  then
@@ -232,11 +232,11 @@ contains
 
           dT(i) = time_const*(net_F(i+1) - net_F(i))
 
-          if (dT(i)>5.0_dp) then
-             dT(i) = 5.0_dp
+          if (dT(i)>5._dp) then
+             dT(i) = 5._dp
           endif
-          if (dT(i)<-5.0_dp) then
-             dT(i) = -5.0_dp
+          if (dT(i)<-5._dp) then
+             dT(i) = -5._dp
           endif
           
        end do ! i=1,nf
@@ -363,11 +363,11 @@ contains
           !if ((tstep .eq. 6076 .or. tstep .eq. 6077) .and. i .eq. nf) write(*,*) 'time const', time_const, flux_diff(i), dT(i)
 
           !if (mod(tstep,100) .eq. 0 .and. i .eq. nf) write(*,*) dT_surf, dT(nf), dT_surf/dT(nf)
-          if (dT(i)>5.0_dp) then
-             dT(i) = 5.0_dp
+          if (dT(i)>5_dp) then
+             dT(i) = 5_dp
           endif
-          if (dT(i)<-5.0_dp) then
-             dT(i) = -5.0_dp
+          if (dT(i)<-5_dp) then
+             dT(i) = -5_dp
           endif
           Tf(i) = Tf(i) + dT(i)
 
@@ -385,7 +385,8 @@ contains
        if (conv_switch) then
           if (moisture_scheme == 'surface') then
              call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,  ktrop)
-             call new_adjust(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask)
+             call new_adjust(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
+
           endif
        endif
        call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,  ktrop)

@@ -8,15 +8,15 @@ import sys
 S_vec = np.arange(50.,150.,5.)
 S_vec = np.r_[np.arange(50.,130.,5.)]
 
-directory = 'mstar_tweak'
+directory = 'mstar_1bar_stable'
 spectral_file_lw = '../../matrixrt/fortran/spectral_files/sp_lw_30_sub_nep_tweak'
 spectral_file_sw = '../../matrixrt/fortran/spectral_files/sp_sw_30_sub_nep_final_mstar'
 
 os.system('mkdir '+directory)
-S_start = 10.0
-S_inc = 0.25
+S_start = 51.25
+S_inc = 1.25
 S_vec = []
-i = 0
+i = 1
 tstep_init = 43200.
 S_value = S_start
 start = True
@@ -39,8 +39,8 @@ while True:
     #start = False
     #else:
     #    start = False
-    fname = f'olr_{i}.nc'
-    input_file = f'olr_{i-1}.nc'
+    fname = f'olr_{i}.0.nc'
+    input_file = f'olr_{i-1}.0.nc'
 
     nml = f90nml.read('input.nml')
 
@@ -167,7 +167,9 @@ while True:
     # Check if Ts is near the dew point temperature
     ds = xr.open_dataset(directory+'/'+fname)
     Ts = ds.Ts.data
-    if 436.719 - Ts < 5.00:
+  #  if 436.719 - Ts < 5.00:
+
+    if 372.76-Ts <5.00:
         break
     if S_value>150:
         break

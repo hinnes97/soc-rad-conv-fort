@@ -66,6 +66,26 @@ program main
      !call bezier_interp(pf(nf-2:nf), Tf(nf-2:nf), 3, pe(nf), Te(nf))
      !call linear_log_interp(pe(1), pf(1), pf(2), Tf(1), Tf(2), Te(1))
      !call linear_log_interp(pe(ne), pf(nf-1), pf(nf), Tf(nf-1), Tf(nf), Te(ne) )
+     ! do i=1,nf
+     !    Tf(i) = Ts*(pf(i)/pe(ne))**(2./7.)
+
+     ! enddo
+
+     ! do i=1,ne
+     !    Te(i) = Ts*(pe(i)/pe(ne))**(2./7.)
+     ! enddo
+
+     ! do i=1,nf
+     !    if (Tf(i) .lt. top_t) then
+     !       Tf(i) = top_t
+     !    endif
+     ! enddo
+
+     ! do i=1,nf+1
+     !    if (Te(i) .lt. top_t) then
+     !       Te(i) = top_t
+     !    endif
+     ! enddo
 
   else
      ! Initialise pressure and temperature arrays as log and lin spaced respectively

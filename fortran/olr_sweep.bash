@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --output=mstar_tweak.out
-#SBATCH --error=mstar_tweak.err
+#SBATCH --output=mstar_1bar_stable.out
+#SBATCH --error=mstar_1bar_stable.err
 #SBATCH --partition=priority-rp
 #SBATCH -N 1
 #SBATCH -n 1

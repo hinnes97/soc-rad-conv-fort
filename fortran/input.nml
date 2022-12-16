@@ -1,22 +1,22 @@
 &control_nml
-    nf = 60
+    nf = 200
     matrix_rt = .false.
     surface = .true.
 /
 
 &initialisation_nml
     log_top_p = 0.0
-    log_bot_p = 6.0
-    bot_t = 260.0
+    log_bot_p = 5.0
+    bot_t = 250.0
     top_t = 100.0
     p_grid = 'hires_trop'
-    frac = 3
+    frac = 2
 /
 
 &io_nml
     init_from_file = .true.
-    input_file = 'mstar_tweak/olr_17.nc'
-    output_file = 'mstar_tweak/olr_18.nc'
+    input_file = 'mstar_1bar_stable/olr_47.0.nc'
+    output_file = 'mstar_1bar_stable/olr_48.0.nc'
 /
 
 &param_nml
@@ -45,7 +45,7 @@
 /
 
 &radiation_nml
-    finc = 14.5
+    finc = 108.75
     fint = 0.0
 /
 

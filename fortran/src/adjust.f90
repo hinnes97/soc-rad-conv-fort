@@ -8,6 +8,8 @@ module adjust_mod
 
   use params, only : dp, Finc, inhibited
   use condense, only: q_sat, cold_trap, dew_point_T
+  use accurate_l, only : p_sat, L_calc, dlogp_dlogt, rho_liq, rho_vap, dpdt
+  use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
   
   implicit none
 
@@ -86,7 +88,7 @@ contains
    end subroutine calc_q_and_grad
 
 
-     subroutine new_adjust(p, delp, T, q, ktrop, grad, olr, mask)
+     subroutine new_adjust(p, delp, T, q, ktrop, grad, olr, mask, tstep)
     !==========================================================================
     ! Description
     !==========================================================================
@@ -110,6 +112,7 @@ contains
     !==========================================================================    
        real(dp), intent(in)   , dimension(:) :: p,delp ! Pressure, pressure thickness
        real(dp), intent(inout), dimension(:) :: grad
+       integer, intent(in) :: tstep
 
     real(dp), intent(in) :: olr
     !==========================================================================
@@ -129,17 +132,19 @@ contains
     ! Tune these parameters as necessasry
     real(dp), parameter          :: delta = 0.0001 ! Small number speeds up convergence
     real(kind=rk), parameter :: tol = 0.0001 ! Tolerance for non-linear solver
-    integer, parameter       :: N_iter = 1000  ! Number of up-down iterations
+    integer, parameter       :: N_iter = 1000 ! Number of up-down iterations
     
-    real(dp) :: qsat1, qsat2, pfact, grad2, qmin, qcrit
-    real(dp) :: qsats(size(p))
+    real(dp) :: qsat1, qsat2, pfact, grad2, qmin, qcrit,temp
+    real(dp) :: qsats(size(p)), qcrits(size(p))
     real(kind=rk) :: output(1), f_output(1)
 
+    real(dp) :: grad_check(size(p)), grad_true(size(p))
+
     integer :: n,k
-    integer :: info
+    integer :: info, counter
     integer :: npz
     logical :: conv_switch = .true.
-    logical :: condition
+    logical :: condition, quit_adjust
     real(dp) :: f ! Helps global energy balance to be reached
     !==========================================================================
     ! Main body
@@ -148,19 +153,31 @@ contains
     npz = size(p)
     !ktrop = npz
     info = 0
+    counter = 0
+    n = 1
     !    write(*,*) lbound(mask), ubound(mask)
     mask = .false.
     
+    quit_adjust = .false.
     
+    !do while (.not. quit_adjust .and. n .lt. N_iter)
+       
     do n=1,N_iter
+
+       grad_check = 0.0_dp
+       grad_true = 0.0_dp
        
        call q_sat(p, T, qsats)
        
        do k=npz-1,max(ktrop, 1),-1
-          call gradient(p(k+1),T(k+1),grad(k))
-          qcrit = (Rstar/mu_v)* T(k+1)/L_vap/(1._dp - mu_d/mu_v)
-          if (n.eq. 1) then
-             f =  (Finc/olr)**(0.01_dp)
+          call gradient(p(k+1),T(k+1),grad(k), temp)
+          !qcrit = (Rstar/mu_v)* T(k+1)/L_vap/(1._dp - mu_d/mu_v)
+          
+          qcrit = 1./(1._dp - mu_d/mu_v) /temp
+          
+          qcrits(k) = qcrit
+          if (n.eq. 1 .and. tstep .gt. 1000) then
+             f =  (Finc/olr)**(0.001_dp)
           else
              f = 1.
           endif
@@ -192,7 +209,7 @@ contains
               endif
               
               if (condition) then
-                 
+                 !write(*,*) 'convection ', k
                  !write(*,*) 'T(k+1), T(k) before', k,T(k+1), T(k)
                  T(k+1) = (T(k)*delp(k) + T(k+1)*delp(k+1))/(delp(k+1) + pfact*delp(k))
                  T(k+1) = f*T(k+1)
@@ -203,12 +220,27 @@ contains
                  mask(k+1) = .true.
 
               endif
-             
+
+              
  !          endif
           
           
-        enddo
+           enddo
 
+           quit_adjust = .true.
+           do k=npz-1,max(ktrop, 1),-1
+              if (mask(k) .and. mask(k+1)) then
+                 call gradient(p(k+1), T(k+1), grad_check(k+1))
+
+                 grad_true(k+1) = log(T(k+1)/T(k))/log(p(k+1)/p(k))
+              endif
+
+              if (abs((grad_true(k+1) - grad_check(k+1))/grad_check(k+1)) .gt. 1.e-5) then
+                 quit_adjust = .false.
+              endif
+           enddo
+           
+!           n =  n + 1
 !!$        do k=max(ktrop, 1),npz-1
 !!$           call gradient(p(k+1),T(k+1),grad(k))
 !!$          qcrit = (Rstar/mu_v)* T(k+1)/L_vap/(1._dp - mu_d/mu_v)
@@ -254,11 +286,14 @@ contains
 !!$        enddo
 !!$           
 !!$
-     enddo
-     
+        enddo
+
+     !write(*,*) 'CONVECTIVE ITERATIONS', n-1, quit_adjust
 !           write(*,*) f
-           !do k=1,npz-1
-              !write(*,*) log(T(k+1)/T(k))/log(p(k+1)/p(k)), grad(k)
+!           do k=1,npz-1
+!              write(*,*) log(T(k+1)/T(k))/log(p(k+1)/p(k)), grad(k), mask(k), q(k), qcrits(k)
+!           enddo
+           
 
 
   end subroutine new_adjust
@@ -503,7 +538,7 @@ contains
 
   end subroutine adjust
 
-  subroutine gradient(p,T, dlnTdlnp)
+  subroutine gradient(p,T, dlnTdlnp, dlnpsat_dlnt)
     !==========================================================================
     ! Description
     !==========================================================================
@@ -520,22 +555,43 @@ contains
     !==========================================================================
     real(dp), intent(out) :: dlnTdlnp ! Moist adiabatic gradient
 
+    real(dp),intent(inout),optional :: dlnpsat_dlnt
     !==========================================================================
     ! Local variables
     !==========================================================================
     real(dp) :: eps = mu_v/mu_d
-    real(dp) :: L, psat, qsat, rsat, num, denom, temp
+    real(dp) :: L, psat, qsat, rsat, num, denom, temp, start, end,t2, ttt
 
     !==========================================================================
     ! Main body
     !==========================================================================
     
-    L = L_vap
-
+    if (T .lt. 273.16) then
+      L = lheat(1)
+   else
+      call find_var_lin(T, lheat, L)
+    endif
+    !L = 2.5e6
     call sat(p, T, qsat, rsat, psat)
-
+    
     num   = 1 + (L*mu_d/Rstar/T)*rsat
-    denom = 1 + ((cp_v/cp_d) + ((L*mu_v/Rstar/T) - 1)*(L/cp_d/T) )*rsat
+    !denom = 1 + ((cp_v/cp_d) + ((L*mu_v/Rstar/T) - 1)*(L/cp_d/T) )*rsat
+    
+    ! Changed for more accurate version
+    if (T .gt. 273.16) then
+       call find_var_lin(T, phase_grad,t2)
+    else
+       L = lheat(1)
+       t2 = L*mu_v/Rstar/T
+       !t2 = phase_grad(1)
+    endif
+    
+
+    if (present(dlnpsat_dlnt)) then
+       dlnpsat_dlnt = t2
+    endif
+    
+    denom = 1 + ((cp_v/cp_d) + t2/cp_d*(L/T - Rstar/mu_v)  )*rsat
 
     temp = Rstar/mu_d/cp_d * num/denom
     
@@ -570,7 +626,7 @@ contains
     !==========================================================================
     ! Local variables
     !==========================================================================
-    real(dp)    :: L, eps, psat_temp, rsat_temp
+    real(dp)    :: L, eps, psat_temp, rsat_temp, start, end, p_sat_old,ttt
 
     !==========================================================================
     ! Main body
@@ -578,10 +634,21 @@ contains
     
     eps = mu_v/mu_d
 
-    L = L_vap
+    
+    !psat_temp = P_TP * exp(-L/Rstar*mu_v * (1./T - 1./T_TP))
 
+    ! C
+  
+    !psat_temp = p_sat(T)
+    if (T .gt. 273.16) then
+       call find_var_loglin(T, satur, psat_temp)
+    else
+       L = lheat(1)
+       psat_temp = P_TP * exp(-L/Rstar*mu_v * (1./T - 1./T_TP))
+    endif
+    
 
-    psat_temp = P_TP * exp(-L/Rstar*mu_v * (1./T - 1./T_TP))
+    !psat_temp =  P_TP * exp(-L/Rstar*mu_v * (1./T - 1./T_TP))
     
     rsat_temp = psat_temp / (p-psat_temp) * eps
     qsat = rsat_temp / (1 + rsat_temp)
