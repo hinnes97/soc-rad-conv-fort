@@ -13,6 +13,7 @@ obj/
 /python/data/
 /fortran/output
 /fortran/data
+/fortran/test_dir
 *.pdf
 *.dat
 *.log
