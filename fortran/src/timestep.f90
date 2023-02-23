@@ -76,7 +76,7 @@ contains
     ! Main Body
     !====================================================================================
     
-    print_interval = 100
+    print_interval = 1
     output_interval  = 100
     
     ! Initialise some of the variables

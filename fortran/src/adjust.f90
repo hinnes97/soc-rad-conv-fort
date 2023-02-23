@@ -5,6 +5,7 @@ module adjust_mod
   use phys, only : T_TP => H2O_TriplePointT, P_TP => H2O_TriplePointP, L_sub => H2O_L_sublimation, &
        L_vap => H2O_L_vaporization_TriplePoint, CP_v => H2O_cp, CP_d => H2He_solar_cp, &
        mu_d => H2He_solar_MolecularWeight, mu_v => H2O_MolecularWeight, Rstar
+       L_sub => H2O_L_sublimation
 
   use params, only : dp, Finc, inhibited
   use condense, only: q_sat, cold_trap, dew_point_T
@@ -561,15 +562,20 @@ contains
     !==========================================================================
     real(dp) :: eps = mu_v/mu_d
     real(dp) :: L, psat, qsat, rsat, num, denom, temp, start, end,t2, ttt
+    real(dp) :: cp_v_local
 
     !==========================================================================
     ! Main body
     !==========================================================================
     
     if (T .lt. 273.16) then
-      L = lheat(1)
+       L = L_sub
+       t2 = L*mu_v/Rstar/T
+       cp_v_local = cp_d ! Justifies L=const by Kirchoff law
    else
-      call find_var_lin(T, lheat, L)
+      call find_var_simplified(T, 'lheat', L)
+      call find_var_simplified(T, 'phase_grad',t2)
+      call find_var_simplified(T, 'cp_v', cp_v_local)
     endif
     !L = 2.5e6
     call sat(p, T, qsat, rsat, psat)
@@ -577,21 +583,11 @@ contains
     num   = 1 + (L*mu_d/Rstar/T)*rsat
     !denom = 1 + ((cp_v/cp_d) + ((L*mu_v/Rstar/T) - 1)*(L/cp_d/T) )*rsat
     
-    ! Changed for more accurate version
-    if (T .gt. 273.16) then
-       call find_var_lin(T, phase_grad,t2)
-    else
-       L = lheat(1)
-       t2 = L*mu_v/Rstar/T
-       !t2 = phase_grad(1)
-    endif
-    
-
     if (present(dlnpsat_dlnt)) then
        dlnpsat_dlnt = t2
     endif
     
-    denom = 1 + ((cp_v/cp_d) + t2/cp_d*(L/T - Rstar/mu_v)  )*rsat
+    denom = 1 + ((cp_v_local/cp_d) + t2/cp_d*(L/T - Rstar/mu_v)  )*rsat
 
     temp = Rstar/mu_d/cp_d * num/denom
     
@@ -641,9 +637,9 @@ contains
   
     !psat_temp = p_sat(T)
     if (T .gt. 273.16) then
-       call find_var_loglin(T, satur, psat_temp)
+       call find_var_loglin(T, 'satur', psat_temp)
     else
-       L = lheat(1)
+       L = L_sub
        psat_temp = P_TP * exp(-L/Rstar*mu_v * (1./T - 1./T_TP))
     endif
     

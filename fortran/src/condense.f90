@@ -5,7 +5,7 @@ module condense
        L_vap => H2O_L_vaporization_TriplePoint, Rstar, mu_v => H2O_MolecularWeight, &
        mu_d => H2He_solar_MolecularWeight
   use accurate_l, only : p_sat, L_calc, log_ps_pc, pc, dlogp_dlogt
-  use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
+  use tables, only : find_var_simplified
   implicit none
 
   
@@ -113,8 +113,8 @@ contains
     
   end subroutine dew_point_T
 
-  subroutine q_sat(p, T, q)
-    real(dp), intent(in) :: p(:), T(:)
+  subroutine q_sat(p, T, qc, q)
+    real(dp), intent(in) :: p(:), T(:), qc(:)
     real(dp), intent(out) :: q(:)
 
     integer :: k
@@ -124,7 +124,7 @@ contains
 
        call sat_vp(p(k), T(k), psat)
        !psat = p_sat(T(k))
-       q(k) = eps*psat/p(k)/(1 + (eps - 1)*psat/p(k))
+       q(k) = eps*psat/p(k)/(1 + (eps - 1)*psat/p(k)) * (1-qc(k))
     enddo
        
   end subroutine q_sat
@@ -169,10 +169,10 @@ contains
 !    endif
 
        if (T .gt. 273.16) then
-          call find_var_loglin(T, satur, sat_p)
+          call find_var_simplified(T, 'satur', sat_p)
           !sat_p = p_sat(T)
        else
-          L = lheat(1)
+          L = L_sub
           sat_p = p_tp*exp(-L/rvgas * (1./T - 1./T_tp) )
           !sat_p = satur(1)
           
