@@ -4,13 +4,14 @@ module adjust_mod
   
   use phys, only : T_TP => H2O_TriplePointT, P_TP => H2O_TriplePointP, L_sub => H2O_L_sublimation, &
        L_vap => H2O_L_vaporization_TriplePoint, CP_v => H2O_cp, CP_d => H2He_solar_cp, &
-       mu_d => H2He_solar_MolecularWeight, mu_v => H2O_MolecularWeight, Rstar
+       mu_d => H2He_solar_MolecularWeight, mu_v => H2O_MolecularWeight, Rstar,&
        L_sub => H2O_L_sublimation
 
   use params, only : dp, Finc, inhibited
   use condense, only: q_sat, cold_trap, dew_point_T
   use accurate_l, only : p_sat, L_calc, dlogp_dlogt, rho_liq, rho_vap, dpdt
-  use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
+  use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin,find_var_simplified,&
+                     cpv_new
   
   implicit none
 
@@ -74,6 +75,7 @@ contains
 
     real(dp) :: f ! Helps global energy balance to be reached
     real(dp) :: qcrit
+    real(dp) :: qc(size(p))
     !==========================================================================
     ! Main body
     !==========================================================================
@@ -82,8 +84,8 @@ contains
     !ktrop = npz
     info = 0
     qmin = 10000.
-
-    call q_sat(p, T, q)
+    qc = 0.0
+    call q_sat(p, T, qc+q, q)
     call cold_trap(q, ktrop, p, T)
     
    end subroutine calc_q_and_grad
@@ -136,7 +138,7 @@ contains
     integer, parameter       :: N_iter = 1000 ! Number of up-down iterations
     
     real(dp) :: qsat1, qsat2, pfact, grad2, qmin, qcrit,temp
-    real(dp) :: qsats(size(p)), qcrits(size(p))
+    real(dp) :: qsats(size(p)), qcrits(size(p)), qc(size(p))
     real(kind=rk) :: output(1), f_output(1)
 
     real(dp) :: grad_check(size(p)), grad_true(size(p))
@@ -168,7 +170,7 @@ contains
        grad_check = 0.0_dp
        grad_true = 0.0_dp
        
-       call q_sat(p, T, qsats)
+       call q_sat(p, T, qc+q, qsats)
        
        do k=npz-1,max(ktrop, 1),-1
           call gradient(p(k+1),T(k+1),grad(k), temp)
@@ -571,7 +573,7 @@ contains
     if (T .lt. 273.16) then
        L = L_sub
        t2 = L*mu_v/Rstar/T
-       cp_v_local = cp_d ! Justifies L=const by Kirchoff law
+       cp_v_local = cpv_new(1) ! Justifies L=const by Kirchoff law
    else
       call find_var_simplified(T, 'lheat', L)
       call find_var_simplified(T, 'phase_grad',t2)
@@ -637,7 +639,7 @@ contains
   
     !psat_temp = p_sat(T)
     if (T .gt. 273.16) then
-       call find_var_loglin(T, 'satur', psat_temp)
+       call find_var_simplified(T, 'satur', psat_temp)
     else
        L = L_sub
        psat_temp = P_TP * exp(-L/Rstar*mu_v * (1./T - 1./T_TP))

@@ -9,6 +9,7 @@ module timestep
   use moisture_mod, only : get_q
   use adjust_mod, only : calc_q_and_grad, new_adjust
   use io, only: dump_data
+  use ding_convection, only: adjustment
   implicit none
 
   integer :: counter
@@ -157,7 +158,7 @@ contains
     
     real(dp), dimension(:), intent(in) :: pf ! Layer pressure
     real(dp), dimension(:), intent(in) :: pe ! Level pressure
-    real(dp), dimension(:), intent(in) :: delp 
+    real(dp), dimension(:), intent(inout) :: delp 
 
     logical, intent(in) :: conv_switch   ! Controls if adjustment happening
     logical, intent(in) :: sensible_heat ! Controls if turbulent heat transfer occurs
@@ -203,6 +204,7 @@ contains
     real(dp), dimension(size(pf)) :: qsat      ! Saturation specific humidity
     real(dp), dimension(size(pf)) :: grad      ! Adiabatic lapse rate dlnT/dlnp
     real(dp), dimension(size(pf)) :: flux_diff ! Divergence of net flux
+    real(dp), dimension(size(pf)) :: qc
     
     real(dp) :: Ts_half     ! Surface temperature at half timestep
     real(dp) :: time_const  ! Multiplies net flux difference to give dT
@@ -381,12 +383,13 @@ contains
        end do !i=1,nf
        
 
-
+       qc = 0.0
        if (conv_switch) then
           if (moisture_scheme == 'surface') then
              call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,  ktrop)
-             call new_adjust(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
-
+             !call new_adjust(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
+             call adjustment(pf, delp, Tf, q, qc, ktrop, grad, olr, dry_mask, tstep)
+             
           endif
        endif
        call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,  ktrop)

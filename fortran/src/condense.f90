@@ -113,8 +113,8 @@ contains
     
   end subroutine dew_point_T
 
-  subroutine q_sat(p, T, qc, q)
-    real(dp), intent(in) :: p(:), T(:), qc(:)
+  subroutine q_sat(p, T, qt, q)
+    real(dp), intent(in) :: p(:), T(:), qt(:)
     real(dp), intent(out) :: q(:)
 
     integer :: k
@@ -122,13 +122,52 @@ contains
 
     do k=1,size(q)
 
-       call sat_vp(p(k), T(k), psat)
+       call q_sat_single(p(k), T(k), qt(k), q(k))
        !psat = p_sat(T(k))
-       q(k) = eps*psat/p(k)/(1 + (eps - 1)*psat/p(k)) * (1-qc(k))
     enddo
        
   end subroutine q_sat
+
+  subroutine q_sat_single(p, T, qt, q)
+    real(dp), intent(in) :: p, T, qt
+    real(dp), intent(out) :: q
+
+    integer :: k
+    real(dp) ::rsat
+
+    call r_sat_single(p,T,rsat)
+    q = rsat*(1-qt)
+    !q= eps*psat/p/(1 + (eps - 1)*psat/p) * (1-qc)
+       
+  end subroutine q_sat_single
+
+  subroutine r_sat(p,T,r)
+    real(dp), intent(in) :: p(:), T(:)
+    real(dp), intent(out) :: r(:)
+
+    integer :: k,npz
+    real(dp) :: psat
+    k = size(p)
+
+    do k=1,npz
+       call sat_vp(p(k),T(k), psat)
+       r(k) = eps*psat/(p(k) - psat) 
+    enddo
+  end subroutine r_sat
   
+  subroutine r_sat_single(p, T, r)
+    real(dp), intent(in) :: p, T
+    real(dp), intent(out) :: r
+
+    integer :: k
+    real(dp) :: psat
+
+    call sat_vp(p,T, psat)
+    r = eps*psat/(p - psat) 
+    !q= eps*psat/p/(1 + (eps - 1)*psat/p) * (1-qc)
+       
+  end subroutine r_sat_single
+
   subroutine rain_out(p,T,q, qsat)
     real(dp), intent(in) :: p, T
     real(dp), intent(inout) :: q
