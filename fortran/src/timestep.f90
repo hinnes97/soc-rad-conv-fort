@@ -1,22 +1,24 @@
 module timestep
   use params, only: dp, Nt, nf, ne, const, Finc, Fint, q0, surface, A_s, sb, surf_const, &
        moisture_scheme, sb, grav, cpair, del_time, accelerate, cp_s, rho_s, rdgas, &
-       depth, U, C_d, conv_switch, sensible_heat
+       depth, U, C_d, conv_switch, sensible_heat, log_top_p, init_from_file, p_grid, frac
   use flux_mod, only: get_fluxes
-  use utils, only: linear_log_interp, bezier_interp
+  use utils, only: linear_log_interp, bezier_interp, logspace
   use convection, only: dry_adjust
-  use condense, only : rain_out, cold_trap,q_sat, dew_point_T
+  use condense, only : q_sat, dew_point_T, q_sat_single, r_sat_single
   use moisture_mod, only : get_q
   use adjust_mod, only : calc_q_and_grad, new_adjust
   use io, only: dump_data
-  use ding_convection, only: adjustment
+  use ppm_remap, only: map1_q2
+  use ding_convection, only: adjustment, rain_out, calc_enthalpy, cold_trap, large_scale_cond
+  
   implicit none
 
   integer :: counter
   real(dp) :: g_conv_old, dflux_surf_old
   real(dp) :: ts_conv_old, ts_old
 contains
-  subroutine step(Tf, pf, pe, file_name, q, Ts)
+  subroutine step(Tf, pf, pe, file_name, q, Ts, h_surf)
     !====================================================================================
     ! Description
     !====================================================================================
@@ -27,8 +29,8 @@ contains
     ! Input variables
     !====================================================================================
     
-    real(dp), dimension(:), intent(in) :: pf ! Layer pressure
-    real(dp), dimension(:), intent(in) :: pe ! Level pressure
+    real(dp), dimension(:), intent(inout) :: pf ! Layer pressure
+    real(dp), dimension(:), intent(inout) :: pe ! Level pressure
 
     character(*), intent(in) :: file_name ! Output file name
     
@@ -40,7 +42,7 @@ contains
     real(dp), dimension(:), intent(inout) :: q   ! Specific humidity
     
     real(dp), intent(inout) :: Ts ! Surface temperature
-
+    real(dp), intent(out) :: h_surf ! Surface enthalpy
     !====================================================================================
     ! Work variables
     !====================================================================================
@@ -50,6 +52,7 @@ contains
     integer :: ktrop 
     integer :: output_interval
     integer :: print_interval
+    integer :: n_iter_newt
     
     logical :: stop_switch = .false.   ! Controls when exit due to convergence occurs
 
@@ -59,15 +62,20 @@ contains
     real(dp), dimension(ne) :: s_up   ! Upwards SW flux
     real(dp), dimension(ne) :: s_dn   ! Downwards SW flux
     real(dp), dimension(ne) :: Te     ! Edge of layer temperature
+    real(dp), dimension(ne) :: pe_new     ! Edge of layer temperature
+    
     
     real(dp), dimension(nf) :: dflux ! Local convergence criterion
     real(dp), dimension(nf) :: dT    ! Change in temperature
     real(dp), dimension(nf) :: delp
     real(dp), dimension(nf) :: factor
     real(dp), dimension(nf) :: T_old
-    real(dp) :: factor_surf, t_surf_old, dT_surf
+    real(dp), dimension(nf) :: q_new
+    real(dp), dimension(nf) :: h_new
+    real(dp), dimension(nf) :: h_old, dp2
+    real(dp) :: factor_surf, t_surf_old, dT_surf, h_temp, T_guess, h_up, h_dn, dtt
 
-    logical, dimension(nf) :: dry_mask
+    integer, dimension(nf) :: dry_mask
     
     real(dp) ::  sens ! Sensible heat flux
     real(dp) :: olr
@@ -77,7 +85,7 @@ contains
     ! Main Body
     !====================================================================================
     
-    print_interval = 1
+    print_interval = 100
     output_interval  = 100
     
     ! Initialise some of the variables
@@ -85,7 +93,7 @@ contains
     factor_surf = -20. ! Arbitrary negative number
     dT = 0._dp
     dt_surf = 0._dp
-    dry_mask = .false.
+    dry_mask = 0
     conv_start_step = 0.
     if (sensible_heat) accelerate = .false.
     counter = 0
@@ -101,14 +109,14 @@ contains
           net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
 
 
-    if (moisture_scheme == 'surface') then
-       call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,ktrop)
-    endif
+    if ((.not. init_from_file) .and. moisture_scheme=='surface') &
+           call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,ktrop)
+    
 
     call print_header
-    
-    do j =1,Nt
 
+    do j =1,Nt
+       
        ! Adapative timestepping
        if (accelerate) then
           call alter_timestep(factor, j, T_old, Tf, dT, factor_surf, t_surf_old, Ts, dt_surf)
@@ -116,7 +124,8 @@ contains
 
        ! Advance forward one timestep
        call single_step(pf, pe, delp, Tf,Te, q,Ts, dT, net_F, fup, fdn, s_up, s_dn, olr, dry_mask, &
-            conv_switch, sensible_heat, accelerate, sens, j, factor, factor_surf, dT_surf, ktrop, dflux_surf)
+            conv_switch, sensible_heat, accelerate, sens, j, factor, factor_surf, dT_surf, ktrop, &
+            dflux_surf, h_surf)
 
        ! Check to see whether to enter next phase of model run
        call check_convergence(net_F, sens, Tf, pf, Te, pe, dry_mask, conv_switch, sensible_heat, &
@@ -131,12 +140,77 @@ contains
           call dump_data(file_name, nf,ne,Tf,pf,pe,olr,Finc,Fint,Te,q,fup,fdn,s_dn,s_up,Ts, dry_mask)
        endif
 
+       if (mod(j,1000) .eq. 0) then
+          call print_final_status(j, pf, Tf, Ts, q, dry_mask, pe)
+       endif
+       
        ! Exit if check_convergence says so
+       if (mod(j,1) .eq. 0) then
+          !          write(*,*) sum(delp*q)
+          if (p_grid == 'hires_trop') then
+             call logspace(log10(0.85)+log10(pe(ne)), log10(pe(ne)), pe_new((ne-ne/frac):ne))
+             call logspace(log_top_p, log10(0.85) + log10(pe(ne)), pe_new(1:(ne-ne/frac-1)), .false.)
+             
+          else
+             call logspace(log_top_p, log10(pe(ne)), pe_new)
+          endif
+          
+
+          do i=1,nf
+             dp2(i) = pe_new(i+1) - pe_new(i)
+          enddo
+          
+          call map1_q2(nf, pe, q,&
+                      nf, pe_new, q_new, dp2)
+
+          do i=1,nf
+             call calc_enthalpy(Tf(i), q(i), 0.0_dp, h_old(i))
+          enddo
+
+          call map1_q2(nf, pe, h_old,&
+               nf, pe_new, h_new, dp2)
+
+          do i=1,nf
+             ! NEWTON ITERATE TO FIND NEW TEMPERTUARE
+             m = 0
+             dtt = 1.e13
+             T_guess = Tf(i)
+             do while ((m .lt. n_iter_newt) .and. (dtt .gt. 1.e-8))
+                call calc_enthalpy(T_guess, q_new(i), 0.0_dp, h_temp)
+                call calc_enthalpy(T_guess+1.e-8, q_new(i), 0.0_dp, h_up)
+                call calc_enthalpy(T_guess-1.e-8, q_new(i), 0.0_dp, h_dn)
+
+                dtt =  -(h_new(i) - h_temp)/(h_up - h_dn) * 2.e-8
+                T_guess = T_guess + dtt
+                m = m+1
+             enddo
+
+             if (abs(dtt) .lt. 1.e-8) Tf(i) = T_guess
+          enddo
+          h_temp = 0.0
+          h_up =0.0
+          
+          q = q_new
+          pe = pe_new
+          do i=1,nf
+             pf(i) = (pe(i+1) - pe(i))/(log(pe(i+1)) - log(pe(i)))
+          enddo
+          !do i=1,nf
+          !   write(*,*) pf(i), Tf(i), q(i)
+          !enddo
+          do i=1,nf
+             delp(i) = pe(i+1) - pe(i)
+             !write(*,*) pf(i), pe(i+1), q(i)
+          enddo
+
+          
+       endif
+       
        if (stop_switch) exit
        
     enddo 
 
-    call print_final_status(j, pf, Tf, Ts, q, dry_mask)
+    call print_final_status(j, pf, Tf, Ts, q, dry_mask, pe)
     
     call dump_data(file_name, nf,ne,Tf,pf,pe,olr,Finc,Fint,Te,q,fup,fdn,s_dn,s_up,Ts, dry_mask)
 
@@ -144,7 +218,7 @@ contains
 
   subroutine single_step(pf, pe, delp, Tf, Te,q, Ts, dT, net_F, fup, fdn, s_up, s_dn, olr, dry_mask,&
        conv_switch, sensible_heat, accelerate, sens, tstep, factor, factor_surf, dt_surf,&
-       ktrop, dflux_surf)
+       ktrop, dflux_surf, h_surf)
     
     !====================================================================================
     ! Description
@@ -156,8 +230,8 @@ contains
     ! Input variables
     !====================================================================================
     
-    real(dp), dimension(:), intent(in) :: pf ! Layer pressure
-    real(dp), dimension(:), intent(in) :: pe ! Level pressure
+    real(dp), dimension(:), intent(inout) :: pf ! Layer pressure
+    real(dp), dimension(:), intent(inout) :: pe ! Level pressure
     real(dp), dimension(:), intent(inout) :: delp 
 
     logical, intent(in) :: conv_switch   ! Controls if adjustment happening
@@ -187,15 +261,15 @@ contains
     real(dp), dimension(:), intent(inout) :: dT        ! Current timestep's change in temp
     real(dp), dimension(:), intent(inout) :: factor       
     real(dp), intent(inout) :: factor_surf
-    logical, dimension(:), intent(inout) :: dry_mask ! Whether convection in layer
+    integer, dimension(:), intent(inout) :: dry_mask ! Whether convection in layer
 
     real(dp), intent(inout) :: dt_surf
-
+    real(dp), intent(inout) :: h_surf
     real(dp), intent(inout) :: dflux_surf ! Surface flux convergence
     !====================================================================================
     ! Work variables
     !====================================================================================
-    integer :: i
+    integer :: i,m
     integer :: test            ! 
     
     real(dp), dimension(size(pe)) :: q_half ! Spec humidity on pe grid
@@ -204,15 +278,18 @@ contains
     real(dp), dimension(size(pf)) :: qsat      ! Saturation specific humidity
     real(dp), dimension(size(pf)) :: grad      ! Adiabatic lapse rate dlnT/dlnp
     real(dp), dimension(size(pf)) :: flux_diff ! Divergence of net flux
-    real(dp), dimension(size(pf)) :: qc
+    real(dp), dimension(size(pf)) :: qc, qt
     
     real(dp) :: Ts_half     ! Surface temperature at half timestep
     real(dp) :: time_const  ! Multiplies net flux difference to give dT
     real(dp) :: df_surf     ! Net flux at surface
     real(dp) :: olr         ! Outgoing longwave radiation
     real(dp) :: dew_pt      ! Dew point temperature
-    real(dp) :: start, stopper, diff
+    real(dp) :: start, stopper, diff, h_cond, evap_flux, h_vap, dh_surf, evap_mass, rsat
 
+    qc = 0.0
+    qt = q
+    !write(*,*) 'DRY beginning', sum((1-q)*delp)
     call interp_to_edges(pf, pe, Tf, Te)
     if (surface)  then
        Te(ne) = Ts
@@ -265,11 +342,12 @@ contains
 
     
        flux_diff(:) = 0.
+       
        sens = 0.
        do i=1,nf
           if (accelerate) then
 
-             flux_diff(i) = flux_diff(i) + net_F(i+1) - net_F(i)
+            flux_diff(i) = flux_diff(i) + net_F(i+1) - net_F(i)
 
 
              if ((i .eq. nf) .and. surface) then
@@ -330,9 +408,42 @@ contains
           else
              time_const = grav/cpair/(pe(i+1) - pe(i))*del_time
              flux_diff(i) = flux_diff(i) + net_F(i+1) - net_F(i)
+
+             if ((i .eq. nf) .and. surface) then
+                Sens = cpair*pf(nf)/rdgas/Tf(nf) * C_d * U *(Tf(nf) - Ts)
+
+                evap_mass = 0.0
+                evap_flux = 0.0
+                ! Evaporative flux
+                call q_sat_single(pf(i), Tf(i), qt(i), qsat(i))
+                if (q(i) .lt. qsat(i)) then
+                   ! Evaporate into the lower layer, conserving the enthalpy of the surface reservoir
+                   call calc_enthalpy(Tf(i), 1.0_dp, 0.0_dp, h_vap) ! Enthalpy of pure vapour/kg
+                   evap_mass = (qsat(i) - q(i) )*delp(i)/grav
+                   evap_flux = evap_mass * h_vap/del_time
+                   call r_sat_single(pf(nf), Tf(nf), rsat)
+                   q(nf) = rsat/(1+rsat)
+
+                endif
+
+                dh_surf =  -evap_flux + s_dn(ne)*(1-A_s) -fup(ne) + fdn(ne) + Sens
+
+                dT_surf = dh_surf/cp_s/rho_s/depth * del_time
+                dT_surf = max(min(dT_surf, 5.0_dp), -5.0_dp)
+                
+                Ts = Ts + dT_surf
+                dflux_surf = dh_surf/sb/Ts**4
+
+!                dT_surf = ( s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens-evap_flux)&
+!                     /cp_s/rho_s/depth * del_time
+!                dflux_surf = (s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens - evap_flux)/sb/Ts**4
+
+                
+             endif
+             
           endif
           
-
+          
           if ((surface) .and. sensible_heat .and. i .eq. nf) then
              dT_surf = 0.
              ! Do turbulent heat exchange between surface and lowest atmospheric layer
@@ -345,12 +456,11 @@ contains
 !             write(*,*)Sens, (s_dn(ne)*(1-A_s) - fup(ne)  + fdn(ne)), Sens/(s_dn(ne)*(1-A_s) - fup(ne)  + fdn(ne)),&
              !                  pf(nf)/rdgas/Tf(nf), (Tf(nf) - Ts)
              !write(*,*) s_dn(ne)*(1-A_s) - fup(ne)  + fdn(ne) + Sens, flux_diff(nf), time_const, dT(nf)
-             
+
              if (abs(dT_surf) .gt. 5) then
                 dT_surf = 5* dT_surf/abs(dT_surf)
              endif
 
-             if (tstep .eq. 6077) write(*,*) 'Sens', sens, dT_surf
 !             Tf(nf) = Tf(nf)  - Sens*grav/cpair/(pe(ne) - pe(ne-1))*del_time
 
              flux_diff(nf) = flux_diff(nf) - Sens
@@ -381,19 +491,46 @@ contains
           end if
 
        end do !i=1,nf
-       
 
-       qc = 0.0
+
+       ! Change delp due to evaporation here (effectively saying evaporation happens
+       ! after the radiative change in layer temperature)
+       delp(nf) = delp(nf) + evap_mass*grav
+       pe(1) = 10**(log_top_p)
+       do i=1,nf
+          pe(i+1) = pe(i) + delp(i)
+          pf(i) = (pe(i+1) - pe(i) )/(log(pe(i+1)) - log(pe(i)))
+       enddo
+       !write(*,*) 'DRY before_conv', sum((1-q-qc)*delp)
        if (conv_switch) then
           if (moisture_scheme == 'surface') then
-             call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,  ktrop)
+             !call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,  ktrop)
              !call new_adjust(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
              call adjustment(pf, delp, Tf, q, qc, ktrop, grad, olr, dry_mask, tstep)
-             
           endif
        endif
-       call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,  ktrop)
+       !write(*,*) 'DRY before_lsc', sum((1-q-qc)*delp)
+       call large_scale_cond(pf,Tf, q, qc)
+       !write(*,*) 'DRY before_rainout', sum((1-q-qc)*delp)
+       call rain_out(delp, Tf, q, qc, h_cond)
+       ! After rain out have to recalculate the pressure grid
        
+       pe(1) = 10**(log_top_p)
+       do i=1,nf
+          pe(i+1) = pe(i) + delp(i)
+          pf(i) = (pe(i+1) - pe(i) )/(log(pe(i+1)) - log(pe(i)))
+       enddo
+
+       !write(*,*) 'DRY before_cold-trap', sum((1-q-qc)*delp)
+       call cold_trap(pf,Tf,q,delp,ktrop)
+
+       pe(1) = 10**(log_top_p)
+       do i=1,nf
+          pe(i+1) = pe(i) + delp(i)
+          pf(i) = (pe(i+1) - pe(i) )/(log(pe(i+1)) - log(pe(i)))
+       enddo
+       !write(*,*) 'DRY before_remap', sum((1-q-qc)*delp)
+       !call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,  ktrop)
        call interp_to_edges(pf, pe, Tf, Te)
 
        if (surface)  then
@@ -401,7 +538,7 @@ contains
        else
           Ts = Te(ne)
        endif
-    
+
      end subroutine single_step
 
      subroutine check_convergence(net_F, sens, Tf, pf, Te,pe,dry_mask, conv_switch, sensible_heat, &
@@ -416,7 +553,7 @@ contains
 
        real(dp), intent(in) :: pf(nf), pe(ne), dT(nf)
        
-       logical, intent(in) :: dry_mask(nf)
+       integer, intent(in) :: dry_mask(nf)
 
        integer, intent(in) :: tstep,ktrop
 
@@ -450,7 +587,7 @@ contains
        dflux = 0.0
        
        do i=1,nf
-          if (dry_mask(i)) then
+          if (dry_mask(i) .gt. 0) then
              dflux(i) = 0.
           else
              if (i.eq.nf) then
@@ -509,11 +646,12 @@ contains
 
        ! Sometimes gets stuck in convection loop without properly converging due to kink.
        ! In this case, smooth temperature profile to aid convergence
-       if (tstep .eq. 2000 .and. .not. sensible_heat) then
-          ! think of what todo e
-          call kink_smoother(pf, Tf)
-          call interp_to_edges(pf,pe,Tf,Te)
-       endif
+!!$       if (tstep .eq. 2000 .and. .not. sensible_heat) then
+!!$          ! think of what todo e
+!!$          write(*,*) 'kink smoother'
+!!$          call kink_smoother(pf, Tf)
+!!$          call interp_to_edges(pf,pe,Tf,Te)
+!!$       endif
        
        ! See what the max dT is and stop if at 5, restart with smaller timestep
        if (sensible_heat .and. tstep-conv_start_step .gt. 100) then
@@ -648,7 +786,8 @@ contains
     real(dp), intent(in) :: net_F(:) ! Net flux
     real(dp), intent(in) :: dT(:)    ! Temperature change
 
-    logical, intent(in) :: dry_mask(:), conv_switch, sensible_heat
+    logical, intent(in) :: conv_switch, sensible_heat
+    integer, intent(in) :: dry_mask(:)
     
     real(dp), intent(in) :: Ts ! Surface temperature
     real(dp), intent(in) :: dflux_surf
@@ -668,14 +807,14 @@ contains
     fmt = '(I15,3(1PE15.3),0PF15.3,2L15,1PE10.3,I5)'
     imax=nf
     do i=nf,1,-1
-       if (dry_mask(i)) imax = i
+       if (dry_mask(i) .gt. 0) imax = i
     enddo
     write(*,fmt) tstep, maxval(abs(dflux)), (net_F(1) - Fint)/Finc, maxval(abs(dT)), Ts, conv_switch, sensible_heat,&
          abs(dflux_surf), maxloc(abs(dflux))
 
   end subroutine print_update
 
-  subroutine print_final_status(tstep, pf, Tf,Ts, q, dry_mask)
+  subroutine print_final_status(tstep, pf, Tf,Ts, q, dry_mask, pe)
     !====================================================================================
     ! Description
     !====================================================================================
@@ -693,8 +832,9 @@ contains
     real(dp), intent(in) :: Tf(nf)
     real(dp), intent(in) :: q(nf)
     real(dp), intent(in) :: pf(nf)
+    real(dp), intent(in) :: pe(ne)
     
-    logical, intent(in) :: dry_mask(nf)
+    integer, intent(in) :: dry_mask(nf)
     
     !====================================================================================
     ! Work variables
@@ -703,7 +843,7 @@ contains
     integer :: i,j
     
     character(len=40) :: fmt
-    
+
     !====================================================================================
     ! Main body
     !====================================================================================
@@ -717,10 +857,11 @@ contains
     write(*,'(4A17)') '[Pa]', '[K]', 'Humidity', 'Mask'
     write(*,*) '------------------------------------------------------------------------------------'
     do i = 1,nf
-       write(*,'(1PE17.3, 0PF17.3, 1PE17.3, L17)') pf(i), Tf(i), q(i), dry_mask(i)
+       write(*,'(1PE17.3, 0PF17.3, 1PE17.3, I17)') pf(i), Tf(i), q(i), dry_mask(i)
     enddo
     write(*,*) '------------------------------------------------------------------------------------'
-    write(*,'(2x,A,F10.3)') 'Surface Temperature [K]:', Ts 
+    write(*,'(2x,A,F20.3)') 'Surface Temperature [K]:', Ts
+    write(*,'(2x,A,F20.3)') 'Surface Pressure [Pa]:', pe(ne) 
     write(*,*) '===================================================================================='
   end subroutine print_final_status
 

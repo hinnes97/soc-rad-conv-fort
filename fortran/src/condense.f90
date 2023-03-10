@@ -147,11 +147,10 @@ contains
 
     integer :: k,npz
     real(dp) :: psat
-    k = size(p)
+    npz = size(p)
 
     do k=1,npz
-       call sat_vp(p(k),T(k), psat)
-       r(k) = eps*psat/(p(k) - psat) 
+       call r_sat_single(p(k),T(k),r(k))
     enddo
   end subroutine r_sat
   

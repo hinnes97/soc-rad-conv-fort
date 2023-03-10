@@ -49,7 +49,7 @@ contains
     !==========================================================================
     ! Output variables
     !==========================================================================
-    logical, intent(in),dimension(:) :: mask ! True where adiabatic
+    integer, intent(in),dimension(:) :: mask ! True where adiabatic
     integer, intent(out) :: ktrop
     !==========================================================================
     ! Mixed input/output
@@ -122,7 +122,7 @@ contains
     ! Output variables
     !==========================================================================
     integer, intent(inout) :: ktrop
-    logical, intent(out) :: mask(:)
+    integer, intent(out) :: mask(:)
     
     !==========================================================================
     ! Mixed input/output
@@ -159,7 +159,7 @@ contains
     counter = 0
     n = 1
     !    write(*,*) lbound(mask), ubound(mask)
-    mask = .false.
+    mask = 0
     
     quit_adjust = .false.
     
@@ -191,7 +191,7 @@ contains
              if ((Finc/olr)**(0.01_dp) .lt. 1) then
                 T(k+1) = T(k+1)*(Finc/olr)**(0.01_dp)
              else
-                mask(k+1) = .true.
+                mask(k+1) = 1
                 cycle
              endif
              
@@ -219,8 +219,8 @@ contains
                  T(k) = f*T(k+1)*pfact
                  !write(*,*) 'T(k+1), T(k) after', k,T(k+1), T(k)
                  
-                 mask(k) = .true.
-                 mask(k+1) = .true.
+                 mask(k) = 1
+                 mask(k+1) = 1
 
               endif
 
@@ -232,7 +232,7 @@ contains
 
            quit_adjust = .true.
            do k=npz-1,max(ktrop, 1),-1
-              if (mask(k) .and. mask(k+1)) then
+              if ((mask(k) .gt. 0) .and. (mask(k+1) .gt. 0)) then
                  call gradient(p(k+1), T(k+1), grad_check(k+1))
 
                  grad_true(k+1) = log(T(k+1)/T(k))/log(p(k+1)/p(k))
@@ -328,7 +328,7 @@ contains
     !==========================================================================
     ! Output variables
     !==========================================================================
-    logical, intent(out),dimension(:) :: mask ! True where adiabatic
+    integer, intent(out),dimension(:) :: mask ! True where adiabatic
     integer, intent(inout) :: ktrop
     
     !==========================================================================
@@ -520,12 +520,12 @@ contains
                 call sat(p(k), T(k), q(k))
                 !call sat(p(k+1),T(k+1), q(k+1))
 
-                mask(k) = .true.
-                mask(k+1) = .true.
+                mask(k) = 1
+                mask(k+1) = 1
 !                conv_switch = .false.
              else
-                mask(k) = .false.
-                mask(k+1) = .false.
+                mask(k) = 0
+                mask(k+1) = 0
 !                ktrop = min(k+1, ktrop)
 !                if ( .not. conv_switch)  exit
                 

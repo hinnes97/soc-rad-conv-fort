@@ -3,13 +3,13 @@ module ding_convection
   use phys, only : T_TP => H2O_TriplePointT, P_TP => H2O_TriplePointP, L_sub => H2O_L_sublimation, &
        L_vap => H2O_L_vaporization_TriplePoint, CP_v => H2O_cp, CP_d => H2He_solar_cp, &
        mu_d => H2He_solar_MolecularWeight, mu_v => H2O_MolecularWeight, Rstar
-  use condense, only: q_sat, q_sat_single, r_sat_single
+  use condense, only: q_sat, q_sat_single, r_sat_single, r_sat
   use tables, only : find_var_lin, lheat, hv, cpv_new, cpl_new, Ttp, find_var_simplified
   use params, only: dp, grav
   implicit none
 
   real(dp) :: precision = 1.e-7
-  integer :: n_iter_conv = 1000
+  integer :: n_iter_conv = 100
   integer :: n_iter_newt = 100
 contains
 
@@ -32,7 +32,7 @@ contains
     ! Output variables
     !==========================================================================
     integer, intent(inout) :: ktrop
-    logical, intent(out) :: mask(:)
+    integer, intent(out) :: mask(:)
     
     !==========================================================================
     ! Mixed input/output
@@ -45,16 +45,30 @@ contains
     !==========================================================================
     real(dp) :: dlnTdlnp, temp, T_lift,rho_lift,q_lift, pfact, cp_v_loc,cp_c_loc
     real(dp) :: qsats(size(p)), rhos(size(p)), rc(size(p)), rv(size(p)), qt(size(p))
-    real(dp) :: R_local(size(p)), cp_local(size(p))
+    real(dp) :: R_local(size(p)), cp_local(size(p)), h_cond, mq_old, mq_new, h_before,h_temp, m_bef,m_aft,h_aft
     
-    integer :: k, npz ,n
+    integer :: k, npz ,n, m
     
     !==========================================================================
     ! Main body
     !==========================================================================
 
+    mask = 0
+    h_cond = 0.0
     npz = size(p)
     qt = qc + q
+    ! ENTHALPY TEST
+    h_before=0.0
+    m_bef=0.0
+    
+    do k=1,npz
+       call calc_enthalpy(T(k), q(k), 0.0_dp, h_temp)
+       h_before = h_before + h_temp*delp(k)
+       m_bef = m_bef + q(k)*delp(k)
+    enddo
+   
+    ktrop = 1
+    
     do n=1,N_iter_conv
 
        ! Find saturation vapour specific humidity
@@ -62,7 +76,7 @@ contains
        do k=1,npz
           if (T(k) .gt. Ttp) then
              call find_var_simplified(T(k), 'cp_v', cp_v_loc)
-             call find_var_simplified(T(k), 'cp_l', cp_v_loc)
+             call find_var_simplified(T(k), 'cp_l', cp_c_loc)
           else
              cp_v_loc = cpv_new(1)
              cp_c_loc = cpv_new(1)
@@ -78,7 +92,8 @@ contains
 
           ! If saturated, gradient should be moist gradient
           if (q(k+1) .gt. 0.90*qsats(k+1)) then
-
+             qt(k) = q(k) + qc(k)
+             qt(k+1) = q(k+1) + qc(k+1)
              ! get moist gradient
              call gradient(p(k+1), T(k+1), dlnTdlnp,temp)
 
@@ -92,15 +107,28 @@ contains
 
              rho_lift = p(k)/T_lift/( Rstar*(q_lift/mu_v + (1-q_lift)/mu_d ))
 
+             
+             mq_old = qt(k)*delp(k) + qt(k+1)*delp(k+1)
+             
              if (rho_lift .lt. rhos(k)) then
+!             if (T_lift .gt. T(k)) then ! Conventional
                 ! Convection here! Conserve non-dilute moist enthalpy
                 call conserve_moist_enthalpy(p(k), p(k+1), T(k), T(k+1), q(k), q(k+1), &
                                              delp(k), delp(k+1), qc(k), qc(k+1))
-                mask(k) = .true.
-                mask(k+1) = .true.
+                mask(k) = 1
+                mask(k+1) = 1
+                mq_new = (q(k)+qc(k))*delp(k) + (q(k+1) + qc(k+1))*delp(k+1)
+                if (abs(mq_old-mq_new)/mq_old .gt. 0.001) then
+                   write(*,*) 'MQold vs mqnew', mq_old, mq_new, qc(k), qc(k+1)
+                endif
+                
+                ktrop = k
+                !call rain_out_single(delp(k), T(k), q(k), qc(k), h_cond)
+                !call rain_out_single(delp(k+1),T(k+1), q(k+1), qc(k+1), h_cond)
              endif
-             
+
           else
+
              ! Do dry expansion with value of R_local
              dlnTdlnp = R_local(k+1)/cp_local(k+1)
 
@@ -108,18 +136,29 @@ contains
              T_lift = T(k+1)*pfact
 
              rho_lift = p(k)/T_lift/R_local(k+1)
-
+             
              if (rho_lift .lt. rhos(k)) then
                 call conserve_dry_enthalpy(p(k), p(k+1), T(k), T(k+1), q(k), q(k+1), &
-                                           delp(k), delp(k+1), qc(k), qc(k+1))
-                mask(k) = .true.
-                mask(k+1) = .true.
+                     delp(k), delp(k+1), qc(k), qc(k+1))
+
+                mask(k) = 2
+                mask(k+1) = 2
              endif
-          endif ! if (q(k+1) .gt. qsats(k+1)) 
+          endif ! if (q(k+1) .gt. qsats(k+1))
+             
           
           
        enddo ! do k=npz-1,1,-1
     enddo ! do n=1,N_iter
+    
+    ! ENTHALPY TEST
+    h_aft=0.0
+    m_aft = 0.0
+    do k=1,npz
+       call calc_enthalpy(T(k), q(k), qc(k), h_temp)
+       h_aft = h_aft + h_temp*delp(k)
+       m_aft = m_aft + (q(k)+qc(k))*delp(k)
+    enddo
     
   end subroutine adjustment
 
@@ -144,8 +183,8 @@ contains
     real(dp) :: k_old, L1, L2, T2_guess, T1_new, dlnTdlnp, pfact,k_new, k1, k2
 
     real(dp) :: q1_new, q2_new, R_new, cpv_1, cpv_2, dT,k_diff, qc1_new, qc2_new
-
-    integer :: n_iter_newt, n
+    real(dp) :: temp1,temp2,temp3,temp4,temp5, temp
+    integer ::  n, m
     
     !==========================================================================
     ! Main body
@@ -164,23 +203,61 @@ contains
     qc1_new = (qc1*dp1 + qc2*dp2)/(dp1+dp2)
     qc2_new = qc1_new
     
-    T2_guess = T2
-    do while ((abs(dT) .gt. precision) .and. (n .lt. n_iter_newt))
+    pfact = exp(Rstar*(q1_new/(1-qc1_new)/mu_v + (1-q1)/(1-qc1_new)/mu_d)/cpv_new(1)*log(p1/p2))
+    T2_guess = (dp1*T1 + dp2*T2)/(dp2 + dp1*pfact)
+    
+    n = 0
+    temp= 1.e13
+    do while ((abs(temp) .gt. precision) .and. (n .lt. n_iter_newt))
        ! Get R/cp of the lower layer
        
        call k_adj_dry(T2_guess, p1, p2, dp1, dp2, q1_new,  qc1_new, T1_new, k_new)
        call dk_adj_dry(T2_guess, p1,p2,dp1,dp2,q1_new, qc1_new, k_diff)
 
-       dT = (k_new - k_old)/k_diff
+       temp = (k_new - k_old)/k_diff
        
-       T2_guess = T2_guess  - dT
+       if (n .gt. n_iter_newt - 10) then
+          write(*,*) T2_guess, temp, k_new, k_old, k_diff
+       endif
+       
+       T2_guess = T2_guess  - 0.5_dp*temp
        n = n+1
+       
     enddo
 
-    call k_adj_dry(T2_guess, p1, p2, dp1, dp2, q1_new, q2_new, T1_new, k_new)
+    if (abs(temp) .gt. precision) then
+       write(*,*) 'max iteration reached, DRY'
+       write(*,*) temp4, T2_guess
+           do m=1,20
+       call calc_enthalpy(T2-10.0_dp+m*1.0_dp, q2_new, qc2_new, temp1)
+       temp2 = Rstar*(q1_new/(1-qc1_new)/mu_v + (1-q1)/(1-qc1_new)/mu_d)
+
+       if (T2-10.0_dp+1.0_dp*m .lt. Ttp) then
+          temp3 = cpv_new(1)
+       else
+          call find_var_simplified(T2-10.0_dp*1.0_dp, 'cpv', temp3)
+       endif
+
+       pfact = exp(temp2/temp3 * log(p1/p2))
+       temp4 = T2_guess*pfact
     
+       call calc_enthalpy(temp4, q2_new,qc2_new, temp3)
+       temp4 = dp1*temp3 + dp2*temp1 - k_old
+
+       write(*,*) 'm=', m, temp4, T2 - 10._dp+m*1.0_dp, temp
+    enddo
+
+       return
+    endif
+    
+    call k_adj_dry(T2_guess, p1, p2, dp1, dp2, q1_new, q2_new, T1_new, k_new)
+
+    if ((abs(T2_guess-T2) .gt. 20.0_dp) .or. (abs(T1-T1_new).gt.20.0_dp) ) return
     q1 = q1_new
     q2 = q2_new
+
+    qc1 = qc1_new
+    qc2 = qc2_new
     T2 = T2_guess
     T1 = T1_new
   end subroutine conserve_dry_enthalpy
@@ -238,7 +315,7 @@ contains
     real(dp), intent(inout) :: T1, T2 ! Temperature of upper/lower layer
     real(dp), intent(inout) :: q1, q2 ! Specific humidity of lower/upper layer
     real(dp), intent(in)    :: dp1, dp2 ! Pressure thicknesses of the layers
-    real(dp), intent(out)   :: qc_1, qc_2 ! Vapour and condensate in adjusted state
+    real(dp), intent(inout)   :: qc_1, qc_2 ! Vapour and condensate in adjusted state
     
     !==========================================================================
     ! Local variables
@@ -246,32 +323,58 @@ contains
     real(dp) :: k_old, L1, L2, T2_guess, T1_guess, dlnTdlnp, pfact, q1_new, q2_new, k_new
 
     real(dp) :: eta, r1_new, r2_new, rc_2, rc_1, m_i, f1, k_diff, dT, T1_new, rv_1, rv_2
-    real(dp) :: k1_old, k2_old
+    real(dp) :: k1_old, k2_old,mq_old, mq_new, qt_10, qt_20,k_test,T1g2,h1,h2, h3,h4
+    real(dp) :: qc_1_new, qc_2_new
     integer :: n
 
     ! Calculate moist enthalpy of old state
-    call calc_enthalpy(T1, q1, 0._dp, k1_old)
-    call calc_enthalpy(T2, q2, 0._dp, k2_old)
+    call calc_enthalpy(T1, q1, qc_1, k1_old)
+    call calc_enthalpy(T2, q2, qc_2, k2_old)
 
     k_old = k1_old*dp1 + k2_old*dp2
+    mq_old = dp1*(q1+qc_1) + dp2*(q2+qc_2)
+    qt_10 = q1 + qc_1
+    qt_20 = q2 + qc_2
     
-    ! Do Newton iteration to find the appropriate T2 in the new state
-    T2_guess = T2
-    do while ((abs(dT) .gt. precision) .and. (n .lt. n_iter_newt)) 
-       call k_adj(T2_guess, p1, p2, dp1, dp2,q1,q2, q1_new, q2_new, qc_1, qc_2, T1_new, k_new)
-       call dk_adj(T2_guess, p1,p2,dp1,dp2, q1, q2, k_diff)
+    
+    n = 0
+    dT = 1.e13 ! Arbitrary high number
+    T2_guess = (T2+T1)*0.5
+    do while ((abs(dT) .gt. precision) .and. (n .lt. n_iter_newt))
+       !write(*,*) 'n = ', n
+       call k_adj(T2_guess, p1, p2, dp1, dp2,qt_10,qt_20, q1_new, q2_new, qc_1_new, qc_2_new, T1_new, k_new)
+       call dk_adj(T2_guess, p1,p2,dp1,dp2, qt_10, qt_20, k_diff)
 
        dT = (k_new - k_old)/k_diff
-       
-       T2_guess = T2_guess  - dT
+       dT = min(dT, 5._dp)
+       dT = max(dT, -5._dp)
+       T2_guess = T2_guess  - 0.5*dT
+
        n = n+1
+       if (n .eq. n_iter_newt-1) then
+          write(*,*) 'Max newton iteration reached'
+          return
+       endif
+       
     enddo
 
-    call k_adj(T2_guess, p1, p2, dp1, dp2, q1,q2,q1_new, q2_new, qc_1, qc_2, T1_new, k_new)
+    call k_adj(T2_guess, p1, p2, dp1, dp2, qt_10,qt_20,q1_new, q2_new, qc_1_new, qc_2_new, T1_new, k_new)
+    if (abs(dT) .gt. precision) then
+       write(*,*) 'MAX newton'
+       return
+    endif
+    
+    if ((abs(T1_new-T1) .gt. 5.0_dp) .or. (abs(T2_guess - T2) .gt. 5.0_dp)) then
+       return
+    endif
+
     q1 = q1_new
     q2 = q2_new
+    qc_1 = qc_1_new
+    qc_2=  qc_2_new
     T2 = T2_guess
     T1 = T1_new
+    mq_new = (q1_new+qc_1)*dp1 + (q2_new+qc_2)*dp2
 
   end subroutine conserve_moist_enthalpy
 
@@ -280,7 +383,7 @@ contains
     real(dp), intent(out) ::  qc_1, qc_2, k_new, T1_new,qv_1, qv_2
 
 
-    real(dp) :: dlnTdlnp, T1_guess, rc_1, rc_2, rv_1, rv_2
+    real(dp) :: dlnTdlnp, rc_1, rc_2, rv_1, rv_2
     real(dp) :: k1, k2, eta, f1, m_i, pfact
     
     call gradient(p2, T2_guess, dlnTdlnp)
@@ -294,7 +397,7 @@ contains
     ! Ratio of upper condensate to lower condensate mixing ratio
     eta = (1 + rv_1)/(1+ rv_2)
 
-    ! Initial mass of vapour
+    ! Initial mass of vapour+condensate
     m_i = q1_0*dp1 + q2_0*dp2
 
     ! Calculate rc_2 according to Ding and Pierrehumbert (note our lower + upper layer)
@@ -302,6 +405,7 @@ contains
     rc_2 = (m_i*(1 + rv_2) - dp2*rv_2 - dp1*rv_1/eta)/(dp1 + dp2 - m_i)
 
     if (rc_2 .lt. 0) then
+       !write(*,*) 'NOT ENOUGH VAP FOR CONDENSATE'
        ! Condensate is negative (not enough initial mass of water)
        qv_1 = rv_1/(1 + rv_1)
        qv_2 = rv_2/(1 + rv_2)
@@ -325,31 +429,16 @@ contains
        qc_2 = rc_2/(1+rv_2 + rc_2)
     endif
 
-
     ! Find enthalpy of the new structure
     ! Dry component = cp*T, moist component = tabulated
 
-    call calc_enthalpy(T1_guess, qv_1, qc_1, k1)
+    call calc_enthalpy(T1_new, qv_1, qc_1, k1)
     call calc_enthalpy(T2_guess, qv_2, qc_2, k2)
 
     k_new = k1*dp1 + k2*dp2
-        
+
   end subroutine k_adj
 
-  subroutine dk_adj(T2_guess, p1, p2, dp1, dp2, q1_0, q2_0, dk_a)
-    real(dp), intent(in) :: T2_guess, p1, p2, dp1, dp2, q1_0, q2_0
-    real(dp), intent(out) :: dk_a
-
-    real(dp) :: qc_1, qc_2, qv_1, qv_2, k_out_up, k_out_dn, dqsat_dt, T_temp
-
-    real(dp) :: eps = 1.e-8
-    ! Estimate derivative of dk_adj wrt T2_guess
-
-    call k_adj(T2_guess + eps/2, p1,p2,dp1,dp2,q1_0, q2_0, qv_1,qv_2,qc_1,qc_2,T_temp,k_out_up)
-    call k_adj(T2_guess - eps/2, p1,p2,dp1,dp2,q1_0, q2_0, qv_1,qv_2,qc_1,qc_2,T_temp,k_out_dn)
-
-    dk_a = (k_out_up - k_out_dn)/eps
-  end subroutine dk_adj
     
   subroutine large_scale_cond(p, T, q, qc)
     real(dp), intent(in) :: p(:)
@@ -365,9 +454,10 @@ contains
 
     npz = size(p)
     do k=1,npz
+       
        qt = qc(k) + q(k)
        call q_sat_single(p(k), T(k), qt,qsat)
-       
+
        if (q(k) .gt. qsat) then
           
           ! Do in terms of the enthalpy of beginning vs final state
@@ -375,6 +465,8 @@ contains
           dT = 0.0_dp
           T_guess = T(k)
           q_guess = qsat
+          n = 0
+          dT = 1.e13
           do while ( (abs(dT) .gt. precision) .and. (n .lt. n_iter_newt))
              call q_sat_single(p(k), T_guess,qt, q_guess)
              qc_guess = qt - q_guess
@@ -419,10 +511,13 @@ contains
 !!$          enddo
 !!$
           ! Update T(k) with the value from large scale condensation
-          T(k) = T_guess
-          call q_sat_single(p(k), T_guess,qt, q_guess)
-          qc(k) = qt - q_guess
-          q(k) = q_guess
+          if (abs(dT) .lt. precision) then
+             T(k) = T_guess
+             call q_sat_single(p(k), T_guess,qt, q_guess)
+             qc(k) = qt - q_guess
+             q(k) = q_guess
+          endif
+          
        endif
        
     enddo
@@ -532,10 +627,114 @@ contains
        q(k) = q(k)/(1 - qc(k))
 
        delp(k) = delp(k) - m_cond*grav
-
        qc(k) = 0.0_dp
     end do
 
   end subroutine rain_out
   
+  subroutine dk_adj(T2_guess, p1, p2, dp1, dp2, q1_0, q2_0, dk_a)
+    real(dp), intent(in) :: T2_guess, p1, p2, dp1, dp2, q1_0, q2_0
+    real(dp), intent(out) :: dk_a
+
+    real(dp) :: qc_1, qc_2, qv_1, qv_2, k_out_up, k_out_dn, dqsat_dt, T_temp
+
+    real(dp) :: eps = 1.e-8
+    ! Estimate derivative of dk_adj wrt T2_guess
+
+    call k_adj(T2_guess + eps/2, p1,p2,dp1,dp2,q1_0, q2_0, qv_1,qv_2,qc_1,qc_2,T_temp,k_out_up)
+    call k_adj(T2_guess - eps/2, p1,p2,dp1,dp2,q1_0, q2_0, qv_1,qv_2,qc_1,qc_2,T_temp,k_out_dn)
+
+    dk_a = (k_out_up - k_out_dn)/eps
+  end subroutine dk_adj
+
+  subroutine rain_out_single(delp, T, q, qc, h_cond)
+      !==========================================================================
+    ! Description
+    !==========================================================================
+    ! Does rain out and conserves mass + enthalpy in doing so
+
+    !==========================================================================
+    ! Input variables
+    !==========================================================================    
+    real(dp), intent(in) :: T
+
+    !==========================================================================
+    ! Input/Output variables
+    !==========================================================================    
+    real(dp), intent(inout) :: delp, q ,qc, h_cond
+    
+    !==========================================================================
+    ! Local variables
+    !==========================================================================    
+    real(dp) :: m_cond_tot, m_cond, rsat, T_guess, q0, rv
+    real(dp) :: required, temp
+
+    m_cond_tot = 0.0_dp
+    
+       ! Mass loss
+       m_cond     = qc * delp/grav
+       m_cond_tot = m_cond_tot + m_cond
+
+       !=================================================================================
+       ! Development notes
+       !=================================================================================
+       ! Re-evaporated condensate
+       ! To do this in an enthalpy-conserving way, one would have to heat the condensate
+       ! from source level to destination level, and then evaporate it into the source layer.
+       ! This gives two equations in two variables -- mass of fallen condensate
+       ! and the final temperature of layer below. Can be solved with a 2D newton iteration
+       ! Easiest to do by going down layer by layer and testing for undersaturation, then
+       ! selecting available condensate from layers above to transport to that layer and
+       ! re-evaporate. What layer to select from though? Nearest layer, highest layer, layer
+       ! with the highest mass of condensate? Probably best to do nearest layer since higher
+       ! pressure thickness in log space will make it more likely to have enough available
+       ! condensate. 
+       !================================================================================
+
+       if (T .lt. Ttp) then
+          h_cond = h_cond + m_cond * (cpv_new(1)*(T-Ttp) - L_sub)
+       else
+          call find_var_simplified(T, 'hl', temp)
+          h_cond = h_cond + m_cond * temp
+       endif
+       
+       ! New q once condensate has rained out
+       q = q/(1 - qc)
+
+       delp = delp - m_cond*grav
+
+       qc = 0.0_dp
+     end subroutine rain_out_single
+
+     subroutine cold_trap(p, T, q, delp, ktrop)
+       real(dp), intent(inout) :: T(:)
+       real(dp), intent(inout) :: q(:)
+       real(dp), intent(inout) :: p(:), delp(:)
+       integer, intent(in) :: ktrop
+
+       integer ::k,m
+       real(dp),dimension(size(T)) :: rs,qs, r0s, qs2, q0s
+       call r_sat(p,T,rs)
+       r0s = q/(1-q)
+       qs= rs/(1 + rs)
+       qs2 = rs*(1-q)
+
+       !write(*,*) 'delp', delp
+       do k=ktrop,2,-1
+          if( r0s(k) .lt. rs(k)) then
+             !delp(k-1) = delp(k-1) + delp(k-1)*(qs2(k-1) - q(k-1))
+             delp(k-1) = delp(k-1) + delp(k-1)*(rs(k-1) - r0s(k-1))/(1+r0s(k-1))
+             q(k-1) = qs(k-1)
+          else
+             do m=1,k-1
+                !delp(m) = delp(m) + delp(m)*(qs2(k) - q(m))
+                delp(m) = delp(m) + delp(m)*(rs(k) - r0s(m))/(1 + r0s(m))
+             enddo
+             q(1:k-1) = qs(k)
+             exit
+          endif
+       enddo
+
+     end subroutine cold_trap
+     
 end module ding_convection

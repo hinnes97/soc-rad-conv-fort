@@ -1,5 +1,5 @@
 &control_nml
-    nf = 100
+    nf = 200
     matrix_rt = .false.
     surface = .true.
 /
@@ -7,15 +7,15 @@
 &initialisation_nml
     log_top_p = 0.0
     log_bot_p = 5.0
-    bot_t = 250.0
+    bot_t = 280.
     top_t = 100.0
-    p_grid = 'log'
+    p_grid = 'hires_trop'
     frac = 2
 /
 
 &io_nml
     init_from_file = .false.
-    input_file = ''
+    input_file = 'test_dir/ding_convection.nc'
     output_file = 'test_dir/ding_convection.nc'
 /
 
@@ -25,10 +25,10 @@
 /
 
 &timestep_nml
-    nt = 100000
+    nt = 10000
     const = 0.01
-    del_time = 43200.0
-    accelerate = .true.
+    del_time = 10000.0
+    accelerate = .false.
 /
 
 &matrix_nml
@@ -45,7 +45,7 @@
 /
 
 &radiation_nml
-    finc = 200
+    finc =200.0
     fint = 0.0
 /
 

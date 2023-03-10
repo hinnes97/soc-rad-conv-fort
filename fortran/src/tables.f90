@@ -270,7 +270,7 @@ contains
       i = 1 + floor((T_target - Ttp)/(T_end - Ttp)*(n_table - 1))
 
       ! Limit values inside table range
-      i = min(i,n_table-1)
+      i = max(min(i,n_table-1),1)
       
       select case(var)
       case('satur')

@@ -24,7 +24,7 @@ program main
   real(dp), dimension(:), allocatable :: net_F
   real(dp), dimension(:), allocatable :: dT
   real(dp), dimension(:), allocatable :: q
-  real(dp) :: olr, start, end, Ts
+  real(dp) :: olr, start, end, Ts, h_surf
 
   integer :: ncid
 
@@ -141,8 +141,9 @@ program main
      call do_matrix(nf, ne, Tf, pf, Te, pe, 1.0_dp, Finc, Fint, olr,q, Ts)
   else
      ! Do timestepping
+     h_surf =0.0_dp
      call cpu_time(start)
-     call step(Tf, pf, pe, output_file ,q, Ts)
+     call step(Tf, pf, pe, output_file ,q, Ts, h_surf)
      call cpu_time(end)
   endif
   
