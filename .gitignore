@@ -28,6 +28,9 @@ obj/
 #Ignore spectral files
 spectral_files
 
+# Ignore socrates source code
+src/socrates/src/
+
 # Ignore slurm error output
 *.err
 
