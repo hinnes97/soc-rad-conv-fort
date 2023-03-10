@@ -29,7 +29,7 @@ obj/
 spectral_files
 
 # Ignore socrates source code
-src/socrates/src/
+fortran/src/socrates/src/
 
 # Ignore slurm error output
 *.err
