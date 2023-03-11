@@ -36,3 +36,6 @@ fortran/src/socrates/src/
 
 # Makefile
 Makefile
+
+#ignore build
+*build*
