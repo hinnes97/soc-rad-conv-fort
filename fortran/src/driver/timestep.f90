@@ -6,7 +6,6 @@ module timestep
   use utils, only: linear_log_interp, bezier_interp
   use convection, only: dry_adjust
   use condense, only : rain_out, cold_trap,q_sat, dew_point_T
-  use moisture_mod, only : get_q
   use adjust_mod, only : calc_q_and_grad, new_adjust
   use io, only: dump_data
   implicit none

@@ -1,7 +1,6 @@
 module flux_mod
 
   use params, only: dp, sb, invert_grid, moist_rad, surface, semi_grey_scheme, A_s
-!  use radiation_Kitzmann_noscatt, only: Kitzmann_TS_noscatt
   use condense, only : rain_out
   
 #ifdef SOC
@@ -88,10 +87,6 @@ contains
          temp_tend, net_surf_sw_down, surf_lw_down, net_F, fup, fdn, s_up, s_dn)
     olr = fup(1)
 
-    ! Adjust so that bottom upwards flux = sigma T^4 in IR
-    !net_F(ne) = net_F(ne) - fup(ne)
-    !fup(ne) = sb*Te(ne)**4
-    !net_F(ne) = net_F(ne) + fup(ne)
     
 #elif defined SHORT_CHAR
 
