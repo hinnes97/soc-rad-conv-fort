@@ -26,8 +26,8 @@ template=$(pwd)/mkmf.template.oxford_ubuntu_1804
 
 touch srclist.txt
 # Always include source directory files
-find src -maxdepth 1 -iname "*.f90" -o -iname "*.F90" -o -iname "*.inc" -o -iname "*.c" -o -iname "*.h" > srclist.txt
-
+#find src -maxdepth 1 -iname "*.f90" -o -iname "*.F90" -o -iname "*.inc" -o -iname "*.c" -o -iname "*.h" > srclist.txt
+find src \( -name *socrates* -prune \) -o \( -iname "*.f90" -o -iname "*.inc" -o -iname "*.F90" \) -print > srclist.txt
 # Compile Socrates source files if -r SOC is given
 if [[ "$radscheme" == "SOC" ]]; then
     find src/socrates/interface -maxdepth 1 -iname "*.f90" -o -iname "*.F90" -o -iname "*.inc" -o -iname "*.c" -o -iname "*.h" >> srclist.txt

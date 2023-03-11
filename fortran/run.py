@@ -5,7 +5,7 @@ import subprocess
 import sys
 import f90nml
 
-# Build executable
+# Build executable, change -r SOC for other radiation scheme as required
 err = os.system('./build -r SOC')
 
 if (err != 0):
@@ -20,6 +20,8 @@ readme = ' '#input('Write description of experiment:\n')
 log_file = exp_name+'.log'
 readme_file = exp_name+'.readme'
 
+
+readme = 'Some message for this run'
 with open(readme_file, 'w') as f:
     f.write(readme+'\n')
 
@@ -27,9 +29,7 @@ os.system('cat input.nml')
 # Save namelist to log file
 os.system('cat input.nml > ' + log_file)
 
-# Run program and save log to logfile, whilst also printing to stdout
-#err = os.system('./main.exe 2>&1 | tee -a ' + log_file)
-
+# Run program
 with open(log_file, 'a') as f:
     proc = subprocess.Popen(['./main.exe'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True)
