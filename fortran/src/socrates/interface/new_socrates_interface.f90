@@ -53,12 +53,10 @@ MODULE socrates_interface_mod
   REAL(r_def), allocatable, dimension(:)     :: soc_bins_lw, soc_bins_sw
 
 
-!ExoFMS namelist
-!  real :: stellar_constant
-!  character :: lw_spectral_filename
-!  character :: sw_spectral_filename
   real :: grav,rdgas,rvgas,cp_air
+  real :: finc, fint
 
+  namelist /radiation_nml/finc, fint
 !  namelist /socrates_rad_nml/ stellar_constant, lw_spectral_filename, sw_spectral_filename
 
 CONTAINS
@@ -66,18 +64,9 @@ CONTAINS
   SUBROUTINE socrates_init()
     !! Initialises Socrates spectra, arrays, and constants
 
- !   USE astronomy_mod, only: astronomy_init
-    !    USE interpolator_mod, only: interpolate_type, interpolator_init, ZERO
     use socrates_config_mod
     use rad_ccf, only: grav_acc, r_gas_dry, cp_air_dry
 
-    ! Arguments
-    !INTEGER, INTENT(in), DIMENSION(4) :: axes
-    !! NB axes refers to the handles of the axes defined in fv_diagnostics
-    !TYPE(time_type), INTENT(in)       :: Time, delta_t_atmos
-    !INTEGER, INTENT(in)               :: num_levels
-    !REAL, INTENT(in) , DIMENSION(:,:)   :: lat
-    !REAL, INTENT(in) , DIMENSION(:,:)   :: lonb, latb
         
     integer :: io, stdlog_unit, nml_unit
     integer :: res, time_step_seconds
@@ -86,25 +75,26 @@ CONTAINS
     character(len=60) :: filename = "input.nml"
     !-------------------------------------------------------------------------------------
     
-!#ifdef INTERNAL_FILE_NML
-!   read (input_nml_file, nml=socrates_rad_nml, iostat=io)
-    !#else
+
     grav=grav_acc
     rdgas=r_gas_dry
     cp_air=cp_air_dry
 
-  inquire(file='input_soc.nml', exist=file_exist)
+  inquire(file=filename, exist=file_exist)
   if ( file_exist ) then
      write(*,*) 'FILE EXISTS'
-     open(99, file='input_soc.nml', iostat=io)
+     open(99, file=filename, iostat=io)
      if (io .ne. 0) write(*,*) 'OPEN ERROR: IOSTAT=',io
      rewind(99)
      read (99, socrates_rad_nml, iostat=io)
      if (io .ne. 0) write(*,*) 'READ ERROR: IOSTAT=',io
+     rewind(99)
+     read (99,radiation_nml, iostat=io)
+     if (io .ne. 0) write(*,*) 'READ ERROR: IOSTAT=',io
      close(99)
      if (io .ne. 0) write(*,*) 'CLOSE ERROR: IOSTAT=',io
    endif
-   write(*,*) 'STELLAR CONSTANT', stellar_constant
+   write(*,*) 'STELLAR CONSTANT', Finc
 !#endif
 !stdlog_unit = stdlog()
 !write(stdlog_unit, socrates_rad_nml)
@@ -198,7 +188,7 @@ if(socrates_hires_mode) then
 
     ! Print Socrates init data from one processor
        PRINT*, 'Initialised Socrates v17.03'
-       PRINT*, 'Stellar constant = ', stellar_constant
+       PRINT*, 'Stellar constant = ', Finc
        PRINT*, 'Longwave spectral file = ', TRIM(control_lw%spectral_file), ' WITH ', n_soc_bands_lw, ' bands'
        PRINT*, 'Longwave hires spectral file = ', TRIM(control_lw_hires%spectral_file), ' WITH ', n_soc_bands_lw_hires, ' bands'
        PRINT*, 'Shortwave spectral file = ', TRIM(control_sw%spectral_file), ' WITH ', n_soc_bands_sw, ' bands'
@@ -287,7 +277,7 @@ if(socrates_hires_mode) then
     integer(i_def) :: input_n_aer_mode
     integer(i_def) :: input_cld_subcol_gen
     integer(i_def) :: input_cld_subcol_req
-
+    
 
 
     ! Dimensions:
@@ -317,113 +307,104 @@ if(socrates_hires_mode) then
     sb=n_soc_bands_lw
 
 
-
-
-
       !Set input T, p, p_level, and mixing ratio profiles
-          input_t(n_profile,:) = fms_temp!reshape(fms_temp(:,:,:),(/si*sj,sk /))
-          input_p(n_profile,:) = fms_p_full!reshape(fms_p_full(:,:,:),(/si*sj,sk /))
-          input_p_level(n_profile,:) = fms_p_half!reshape(fms_p_half(:,:,:),(/si*sj,sk+1 /))
+    input_t(n_profile,:) = fms_temp
+    input_p(n_profile,:) = fms_p_full
+    input_p_level(n_profile,:) = fms_p_half!
           
-          if (account_for_effect_of_water .eqv. .true.) then
-              input_mixing_ratio(n_profile,:) = fms_spec_hum!reshape(fms_spec_hum(:,:,:) / (1. - fms_spec_hum(:,:,:)),(/si*sj,sk /)) !Mass mixing ratio = q / (1-q)
-          else
-              input_mixing_ratio = 0.0
-          endif
+    if (account_for_effect_of_water .eqv. .true.) then
+       input_mixing_ratio(n_profile,:) = fms_spec_hum
+    else
+       input_mixing_ratio = 0.0
+    endif
           
-          if (account_for_effect_of_ozone .eqv. .true.) then
-            input_o3_mixing_ratio(n_profile,:) = fms_ozone!reshape(fms_ozone(:),(/n_profile,sk /))
-          else         
-            input_o3_mixing_ratio = 0.0
-          endif
-
-          input_co2_mixing_ratio(n_profile,:) = fms_co2!reshape(fms_co2(:),(/n_profile,sk/))
-          input_h2_mixing_ratio(n_profile,:) = fms_h2
-          input_he_mixing_ratio(n_profile,:) = fms_he
-          input_ch4_mixing_ratio(n_profile,:) = fms_ch4
+    input_co2_mixing_ratio(n_profile,:) = fms_co2!reshape(fms_co2(:),(/n_profile,sk/))
+    input_h2_mixing_ratio(n_profile,:) = fms_h2
+    input_he_mixing_ratio(n_profile,:) = fms_he
+    input_ch4_mixing_ratio(n_profile,:) = fms_ch4
           
-          !-------------
+    !-------------
 
-          !Default parameters
-          input_cos_zenith_angle(n_profile) = fms_coszen!reshape((fms_coszen(:,:)),(/si*sj /))
-          input_orog_corr = 0.0
-          input_planet_albedo(n_profile) = fms_albedo!reshape(fms_albedo(:,:),(/n_profile /))
+    !Default parameters
+    input_cos_zenith_angle(n_profile) = fms_coszen!reshape((fms_coszen(:,:)),(/si*sj /))
+    input_orog_corr = 0.0
+    input_planet_albedo(n_profile) = fms_albedo!reshape(fms_albedo(:,:),(/n_profile /))
 
-          !Set tide-locked flux - should be set by namelist eventually!
+    !Set tide-locked flux - should be set by namelist eventually!
 
-          !HII CHANGE TO SCALE BY ZENITH ANGLE BEFORE SOCRATES DOES IT
-          input_solar_irrad(n_profile) = stellar_constant/fms_coszen
-          input_t_surf(n_profile) = fms_t_surf!reshape(fms_t_surf(:,:),(/si*sj /))
-          z_full_reshaped(n_profile,:) = fms_z_full!reshape(fms_z_full(:,:,:), (/si*sj, sk/))
-          z_half_reshaped(n_profile,:) = fms_z_half!reshape(fms_z_half(:,:,:), (/si*sj, sk+1/))
+    !HII CHANGE TO SCALE BY ZENITH ANGLE BEFORE SOCRATES DOES IT
+    input_solar_irrad(n_profile) = Finc/fms_coszen
+    input_t_surf(n_profile) = fms_t_surf!reshape(fms_t_surf(:,:),(/si*sj /))
+    z_full_reshaped(n_profile,:) = fms_z_full!reshape(fms_z_full(:,:,:), (/si*sj, sk/))
+    z_half_reshaped(n_profile,:) = fms_z_half!reshape(fms_z_half(:,:,:), (/si*sj, sk+1/))
 
-          !--------------
-          !Set input t_level by scaling t
-       if (use_pressure_interp_for_half_levels) then
-             DO k = 1,n_layer-1
-                input_t_level(:,k) = input_t(:,k) + (input_t(:,k+1)-input_t(:,k)) * &
-                     ((input_p_level(:,k)-input_p(:,k))/(input_p(:,k+1)-input_p(:,k)))
-             END DO
-!              input_t_level(:,n_layer) = input_t(:,n_layer) + input_t(:,n_layer) - input_t_level(:,n_layer-1)
-             input_t_level(:,n_layer) = input_t(:,n_layer) + (input_t(:,n_layer)-input_t(:,n_layer-1)) * &
-                  ((input_p_level(:,n_layer)-input_p(:,n_layer))/(input_p(:,n_layer)-input_p(:,n_layer-1)))
+    !--------------
+    !Set input t_level by scaling t
+    if (use_pressure_interp_for_half_levels) then
+       DO k = 1,n_layer-1
+          input_t_level(:,k) = input_t(:,k) + (input_t(:,k+1)-input_t(:,k)) * &
+               ((input_p_level(:,k)-input_p(:,k))/(input_p(:,k+1)-input_p(:,k)))
+       END DO
+       !              input_t_level(:,n_layer) = input_t(:,n_layer) + input_t(:,n_layer) - input_t_level(:,n_layer-1)
+       input_t_level(:,n_layer) = input_t(:,n_layer) + (input_t(:,n_layer)-input_t(:,n_layer-1)) * &
+            ((input_p_level(:,n_layer)-input_p(:,n_layer))/(input_p(:,n_layer)-input_p(:,n_layer-1)))
              
-!              input_t_level(:,0) = input_t(:,1) - (input_t_level(:,1) - input_t(:,1))
-             input_t_level(:,0) = input_t(:,1) + (input_t(:,2)-input_t(:,1)) * &
-                  ((input_p_level(:,0)-input_p(:,1))/(input_p(:,2)-input_p(:,1)))
+       !              input_t_level(:,0) = input_t(:,1) - (input_t_level(:,1) - input_t(:,1))
+       input_t_level(:,0) = input_t(:,1) + (input_t(:,2)-input_t(:,1)) * &
+            ((input_p_level(:,0)-input_p(:,1))/(input_p(:,2)-input_p(:,1)))
              
-       else
+    else
 
-          call interp_temp(z_full_reshaped,z_half_reshaped,input_t, input_t_level)
+       call interp_temp(z_full_reshaped,z_half_reshaped,input_t, input_t_level)
 
-       endif
+    endif
 
-         if (present(t_half_level_out)) then
-             t_half_level_out(:) = input_t_level(n_profile,:)!reshape(input_t_level,(/si,sj,sk+1 /))
-         endif
+    if (present(t_half_level_out)) then
+       t_half_level_out(:) = input_t_level(n_profile,:)!reshape(input_t_level,(/si,sj,sk+1 /))
+    endif
 
           !Set input dry mass, density, and heat capacity profiles
-          DO i=n_layer, 1, -1
-             input_d_mass(:,i) = (input_p_level(:,i)-input_p_level(:,i-1))/grav
-             input_density(:,i) = input_p(:,i)/(rdgas*input_t(:,i)*(1. + c_virtual*fms_spec_hum(i)))
-             input_layer_heat_capacity(:,i) = input_d_mass(:,i)*cp_air
-          END DO
+    DO i=n_layer, 1, -1
+       input_d_mass(:,i) = (input_p_level(:,i)-input_p_level(:,i-1))/grav
+       input_density(:,i) = input_p(:,i)/(rdgas*input_t(:,i)*(1. + c_virtual*fms_spec_hum(i)))
+       input_layer_heat_capacity(:,i) = input_d_mass(:,i)*cp_air
+    END DO
 
 
-          ! Zero heating rate
-          soc_heating_rate = 0.0
+    ! Zero heating rate
+    soc_heating_rate = 0.0
+    
+    ! Test if LW or SW mode
+    if (soc_lw_mode .eqv. .TRUE.) then
+       control_lw%isolir = 2
+       CALL read_control(control_lw, spectrum_lw)
+       if (socrates_hires_mode .eqv. .FALSE.) then
+          control_calc = control_lw
+          spectrum_calc = spectrum_lw
+       else
+          control_calc = control_lw_hires
+          spectrum_calc = spectrum_lw_hires
+       end if
 
-          ! Test if LW or SW mode
-          if (soc_lw_mode .eqv. .TRUE.) then
-             control_lw%isolir = 2
-             CALL read_control(control_lw, spectrum_lw)
-             if (socrates_hires_mode .eqv. .FALSE.) then
-                control_calc = control_lw
-                spectrum_calc = spectrum_lw
-             else
-                control_calc = control_lw_hires
-                spectrum_calc = spectrum_lw_hires
-             end if
+    else
+       control_sw%isolir = 1
+       CALL read_control(control_sw, spectrum_sw)
+       if(socrates_hires_mode .eqv. .FALSE.) then
+          control_calc = control_sw
+          spectrum_calc = spectrum_sw
+       else
+          control_calc = control_sw_hires
+          spectrum_calc = spectrum_sw_hires
+       end if
 
-          else
-             control_sw%isolir = 1
-             CALL read_control(control_sw, spectrum_sw)
-             if(socrates_hires_mode .eqv. .FALSE.) then
-                control_calc = control_sw
-                spectrum_calc = spectrum_sw
-             else
-                control_calc = control_sw_hires
-                spectrum_calc = spectrum_sw_hires
-             end if
-
-          end if
+    end if
 
 
-          ! Do calculation
-          CALL read_control(control_calc, spectrum_calc)
+    ! Do calculation
+    CALL read_control(control_calc, spectrum_calc)
 
-          if (soc_lw_mode .eqv. .TRUE.) then
-            CALL socrates_calc(control_calc, spectrum_calc,                      &
+    if (soc_lw_mode .eqv. .TRUE.) then
+       CALL socrates_calc(control_calc, spectrum_calc,                      &
                n_profile, n_layer, input_n_cloud_layer, input_n_aer_mode,             &
                input_cld_subcol_gen, input_cld_subcol_req,                                  &
                input_p,                                    & 
@@ -451,8 +432,8 @@ if(socrates_hires_mode) then
                soc_heating_rate,                           &
                soc_spectral_olr)
 
-          else
-            CALL socrates_calc(control_calc, spectrum_calc,                      &
+    else
+       CALL socrates_calc(control_calc, spectrum_calc,                      &
                n_profile, n_layer, input_n_cloud_layer, input_n_aer_mode,             &
                input_cld_subcol_gen, input_cld_subcol_req,                                  &
                input_p,                                    &
@@ -478,22 +459,22 @@ if(socrates_hires_mode) then
                soc_flux_down,                           &
                soc_flux_up,                             &
                soc_heating_rate)
-          endif
+    endif
 
 
-          ! Set output arrays
-          output_flux_up = soc_flux_up(n_profile,:)
-          output_flux_down = soc_flux_down(n_profile,:)!reshape(soc_flux_down(:,:),(/si,sj,sk+1 /))          
+    ! Set output arrays
+    output_flux_up = soc_flux_up(n_profile,:)
+    output_flux_down = soc_flux_down(n_profile,:)
 
-          if(present(output_flux_direct)) then
-              output_flux_direct = soc_flux_direct(n_profile,:)!reshape(soc_flux_direct(:,:),(/si,sj,sk+1 /))          
-          endif
+    if(present(output_flux_direct)) then
+       output_flux_direct = soc_flux_direct(n_profile,:)
+    endif
           
-          output_heating_rate = soc_heating_rate(n_profile,:)!reshape(soc_heating_rate(:,:),(/si,sj,sk /))
+    output_heating_rate = soc_heating_rate(n_profile,:)
 
-          if (soc_lw_mode .eqv. .TRUE.) then
-              output_soc_spectral_olr = soc_spectral_olr(n_profile,:) !reshape(soc_spectral_olr(:,:),(/si,sj,int(n_soc_bands_lw,i_def) /))
-          endif
+    if (soc_lw_mode .eqv. .TRUE.) then
+       output_soc_spectral_olr = soc_spectral_olr(n_profile,:) 
+    endif
 
   end subroutine socrates_interface
 
@@ -532,28 +513,13 @@ if(socrates_hires_mode) then
     real(dp) :: coszen, fracsun   
     real(dp), dimension(size(temp_in)) :: ozone_in, co2_in
     real(dp), dimension(size(temp_in)) :: thd_sw_flux_down, thd_lw_flux_up
-    !type(time_type) :: Time_loc
 
-    real :: pi, wtmco2, wtmozone, rdgas, gas_constant
-    pi = 4._dp*atan(1._dp)
-    wtmco2 = 44._dp
-    wtmozone=48._dp
-    rdgas=3779._dp
-    gas_constant=8314._dp
-
-       !make sure we run perpetual when solday > 0)
- !         if(solday > 0)then
- !            Time_loc = set_time(seconds,solday)
- !         else
- !            Time_loc = Time
- !         endif
-
-       !Set tide-locked flux if tidally-locked = .true. Else use diurnal-solar
-       !to calculate insolation from orbit!
-       if (tidally_locked .eqv. .TRUE.) then
-           coszen = COS(rad_lat)*COS(rad_lon)
-           if (coszen < 0.0_dp) coszen = 0.0_dp
-           
+    !Set tide-locked flux if tidally-locked = .true. Else use diurnal-solar
+    !to calculate insolation from orbit!
+    if (tidally_locked .eqv. .TRUE.) then
+       coszen = COS(rad_lat)*COS(rad_lon)
+       if (coszen < 0.0_dp) coszen = 0.0_dp
+       
        endif
 
        ! HII HARD CODING THIS VALUE
@@ -562,33 +528,6 @@ if(socrates_hires_mode) then
        ozone_in = 0.00_dp
        co2_in = 0.0_dp
 
-       
-      !get ozone 
-!       if(do_read_ozone)then
-!         call interpolator( o3_interp, Time_diag, p_half_in, ozone_in, trim(ozone_field_name))
-!         if (input_o3_file_is_mmr==.false.) then
-!             ozone_in = ozone_in * wtmozone / (1000. * gas_constant / rdgas ) !Socrates expects all abundances to be mass mixing ratio. So if input file is volume mixing ratio, it must be converted to mass mixing ratio using the molar masses of dry air and ozone
-             ! Molar mass of dry air calculated from gas_constant / rdgas, and converted into g/mol from kg/mol by multiplying by 1000. This conversion is necessary because wtmozone is in g/mol.
-             
-!         endif 
-!       endif
-
-!       if (input_co2_mmr==.false.) then
-!           co2_in = co2_ppmv * 1.e-6 * wtmco2 / (1000. * gas_constant / rdgas )!Convert co2_ppmv to a mass mixing ratio, as required by socrates
-             ! Molar mass of dry air calculated from gas_constant / rdgas, and converted into g/mol from kg/mol by multiplying by 1000. This conversion is necessary because wtmco2 is in g/mol.           
-!       else
-!           co2_in = co2_ppmv * 1.e-6 !No need to convert if it is already a mmr
-!       endif
-      
-       !get co2 
-!       if(do_read_co2)then
-!         call interpolator( co2_interp, Time_diag, p_half_in, co2_in, trim(co2_field_name))
-!         if (input_co2_mmr==.false.) then
-!             co2_in = co2_in * 1.e-6 * wtmco2 / (1000. * gas_constant / rdgas )
-             ! Molar mass of dry air calculated from gas_constant / rdgas, and converted into g/mol from kg/mol by multiplying by 1000. This conversion is necessary because wtmco2 is in g/mol.
-             
-!         endif
-!       endif
 
        n_profile = INT(1, kind(i_def))!INT(size(temp_in,2)*size(temp_in,1), kind(i_def))
        n_layer   = INT(size(temp_in), kind(i_def))
@@ -622,10 +561,9 @@ if(socrates_hires_mode) then
             output_heating_rate_lw, output_soc_flux_lw_down, output_soc_flux_lw_up, &
             output_soc_spectral_olr = outputted_soc_spectral_olr, t_half_level_out = t_half_out)
 
-       !tg_tmp_soc = tg_tmp_soc + output_heating_rate_lw*delta_t !Output heating rate in K/s, so is a temperature tendency
-       surf_lw_down = REAL(output_soc_flux_lw_down(n_layer+1), kind(dp))
-       !thd_lw_flux_up = REAL(output_soc_flux_lw_up, kind(dp))
 
+       surf_lw_down = REAL(output_soc_flux_lw_down(n_layer+1), kind(dp))
+       
        temp_tend(:) = temp_tend(:) + real(output_heating_rate_lw, kind(dp))
        
        ! SW calculation
@@ -638,10 +576,8 @@ if(socrates_hires_mode) then
             z_full_soc, z_half_soc, albedo_soc, coszen_soc, n_profile, n_layer,     &
             output_heating_rate_sw, output_soc_flux_sw_down, output_soc_flux_sw_up)
 
-       !tg_tmp_soc = tg_tmp_soc + output_heating_rate_sw*delta_t !Output heating rate in K/s, so is a temperature tendency
-! MDH added ST fix
+
        net_surf_sw_down = REAL(output_soc_flux_sw_down(n_layer+1)-output_soc_flux_sw_up(n_layer+1) , kind(dp))
-       !thd_sw_flux_down = REAL(output_soc_flux_sw_down, kind(dp))
 
 
        temp_tend(:) = temp_tend(:) + real(output_heating_rate_sw, kind(dp))
@@ -656,10 +592,7 @@ if(socrates_hires_mode) then
        lw_dn = output_soc_flux_lw_down
        
 
-!hires
-!            if(id_soc_spectral_olr > 0) then 
-!                used = send_data ( id_soc_spectral_olr, outputted_soc_spectral_olr, Time_diag)
-!            endif      
+
 
 end subroutine run_socrates  
 

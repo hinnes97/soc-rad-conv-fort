@@ -1,6 +1,6 @@
 module condense
 
-  use params, only : rdgas, q0, dp, nf
+  use params, only : rdgas, q0, dp, nf, moisture_scheme
   use phys, only: T_TP => H2O_TriplePointT, P_TP => H2O_TriplePointP, &
        L_vap => H2O_L_vaporization_TriplePoint, Rstar, mu_v => H2O_MolecularWeight, &
        mu_d => H2He_solar_MolecularWeight
@@ -189,41 +189,49 @@ contains
 
     integer :: i(1), j
     integer :: trop_index
-    real(dp) q_min, T_smoothed(size(T)), q_smooth(size(T))
+    real(dp) q_min
 
-    !write(*,*) 'cold trap', adjust_mask(1)
-    ! do j=1,nf
-    !    if (adjust_mask(j)) then
-    !       trop_index = j-1
-    !       exit
-    !    endif
-    ! enddo
+
     q_min = 10000.
 
-    do j=2,nf-1
-       q_smooth(j) =  q(j-1)*0.25_dp + q(j)*0.5_dp + q(j+1)*0.25_dp
-    enddo
-    q_smooth(1) = q(1)*0.8 + q(2)*0.2
-    q_smooth(nf) = q(nf)*0.8 + q(nf-1)*0.2
-
-    !call q_sat(p, T_smoothed, q_smooth)
     ktrop=1
     do j=nf,1,-1
-       if (q(j) .gt. 1) then
-          q(j) = 1.
-          call dew_point_T(p(j), T(j))
-          cycle
-       endif
-         
-       if (q(j) .lt. q_min) then
-          q_min = q(j)
-       else if (p(j) .lt. 9.*p(nf)/10.) then
-          q(1:j) = q_min
-          ktrop = j+1
-          exit
-       endif
+
+       if (moisture_scheme=='surface') then
+          
+          if (q(j) .gt. 1) then
+             q(j) = 1.
+             call dew_point_T(p(j), T(j))
+             cycle
+          endif
+
+
        
+          if (q(j) .lt. q_min) then
+             q_min = q(j)
+       
+          else if (p(j) .lt. 9.*p(nf)/10.) then
+             ! Extra condition stops cold trap being too low down
+             ! Liable to crashing if set too near the surface
+             q(1:j) = q_min
+             ktrop = j+1
+             exit
+          endif
+
+       else if (moisture_scheme=='deep') then
+          if (q(j) .lt. q_min) then
+             q_min = q(j)
+
+          else if (p(j) .lt. 9*p(nf)/10. .and. q(j) .lt. q0) then
+             q(1:j) = q_min
+             ktrop = j+1
+          endif
+          
+       endif
     enddo
+ 
+    
+ 
        
     ! i = minloc(q(1:ktrop))
     ! write(*,*) 'MINLOC', i(1), q(i(1))
@@ -232,4 +240,62 @@ contains
     ! enddo
     
   end subroutine cold_trap
+
+    subroutine set_q(p,T, q,ktrop)
+    !==========================================================================
+    ! Description
+    !==========================================================================    
+    ! Sets water vapour mixing ratio to saturation value, and then calculates
+    ! the cold trap
+    !
+    ! moisture_scheme can currently have two values:
+    ! - "surface" - assumes surface water ocean -- atmosphere must be saturated
+    !               with water vapour and temperature limited by temp when q=1.
+    !
+    ! - "deep" - deep water content of q0, q is min of saturation or q0
+    ! 
+    !==========================================================================
+    
+    !==========================================================================
+    ! Input variables
+    !==========================================================================    
+      real(dp), intent(in)   , dimension(:) :: p! Pressure, pressure thickness
+      
+    !==========================================================================
+    ! Output variables
+    !==========================================================================
+
+    integer, intent(out) :: ktrop ! Tropopause defined by cold trap, don't do
+                                  ! Moist convective adjustment above this index
+    
+    !==========================================================================
+    ! Mixed input/output
+    !==========================================================================
+    real(dp), intent(inout), dimension(:) :: T,q ! Temperature and specific humid.
+    
+
+    integer :: k, npz, kmax
+    
+    !==========================================================================
+    ! Main body
+    !==========================================================================
+
+    ! Set to saturation
+    call q_sat(p, T, q)
+    call cold_trap(q, ktrop, p, T)
+
+    
+    ! Correct if above deep value
+    if (moisture_scheme =='deep') then
+       npz = size(q)
+       do k=1,npz
+          q(k) = min(q(k), q0)
+       enddo
+       ! Don't do moist convection if entire atmosphere is at q0
+       if (q(ktrop) .gt. q0) ktrop = npz
+    endif
+
+   end subroutine set_q
+
+
 end module condense

@@ -16,72 +16,6 @@ module adjust_mod
 contains
 
 
-  subroutine calc_q_and_grad(p, delp, T, q, mask, olr,ktrop)
-    !==========================================================================
-    ! Description
-    !==========================================================================
-    ! Performs moist adiabatic adjustment, conserving column-integrated moist
-    ! enthalpy: \int(cp*T + Lq)*dp in the dilute limit, as in Manabe 1965. The
-    ! adjustment is performed pairwise in layers, until convergence is reached.
-    ! For two layers (labelled 1 and 2, with post-adjustment state having
-    ! dashes), the conservation of moist enthalpy is:
-    !
-    ! cp*(T1*dp1+T2*dp2) + L*(q1(T1)*dp1+q2(T2)*dp2)
-    !                    = cp*(T1'*dp1+T2'*dp2) + L*(q1'(T1')*dp1+q2'(T2')*dp2)
-    !
-    ! We can relate T1' to T2' by T1' = T2'*(p1/p2)**(dlnT/dlnp), and then since
-    ! qi' is related to Ti' by the Clausius Clapyeron relation, we can solve for
-    ! T2' using non-linear equation solver fsolve (More 1980).
-    !
-    ! Algorithm heavily based on Ray Pierrehumbert's dry convection code
-
-    !==========================================================================
-    ! Input variables
-    !==========================================================================    
-    real(dp), intent(in)   , dimension(:) :: p,delp ! Pressure, pressure thickness
-    real(dp), intent(in) :: olr
-    !==========================================================================
-    ! Output variables
-    !==========================================================================
-    logical, intent(in),dimension(:) :: mask ! True where adiabatic
-    integer, intent(out) :: ktrop
-    !==========================================================================
-    ! Mixed input/output
-    !==========================================================================
-    real(dp), intent(inout), dimension(:) :: T,q ! Temperature and specific humid.
-    
-
-    !==========================================================================
-    ! Local variables
-    !==========================================================================
-    ! Tune these parameters as necessasry
-    real(dp), parameter          :: delta = 0.000001 ! Small number speeds up convergence
-    integer, parameter       :: N_iter = 1  ! Number of up-down iterations
-    
-    real(dp) :: qsat1, qsat2, pfact, grad2, qmin, grad_temp
-
-    integer :: n,k
-    integer :: info
-    integer :: npz
-    logical :: conv_switch = .true.
-
-    real(dp) :: f ! Helps global energy balance to be reached
-    real(dp) :: qcrit
-    !==========================================================================
-    ! Main body
-    !==========================================================================
-    
-    npz = size(p)
-    !ktrop = npz
-    info = 0
-    qmin = 10000.
-
-    call q_sat(p, T, q)
-    call cold_trap(q, ktrop, p, T)
-    
-   end subroutine calc_q_and_grad
-
-
    subroutine new_adjust(p, delp, T, q, ktrop, grad, olr, mask, tstep)
     !==========================================================================
     ! Description
@@ -199,7 +133,7 @@ contains
                  condition = ( (T(k) - T(k+1)*pfact*(1+delta)) .lt. 0 )
               endif
               
-              if (condition) then
+              if (condition .and. q(k+1) .gt. qsats(k+1) - 1.e-10) then
                  T(k+1) = (T(k)*delp(k) + T(k+1)*delp(k+1))/(delp(k+1) + pfact*delp(k))
                  T(k+1) = f*T(k+1)
                  T(k) = f*T(k+1)*pfact

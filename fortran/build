@@ -20,6 +20,9 @@ done
 
 echo $radscheme
 execdir=obj
+
+mkdir ${execdir}
+
 homedir=$(pwd)
 mkmf=$(pwd)/mkmf
 template=$(pwd)/mkmf.template.oxford_ubuntu_1804

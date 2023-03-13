@@ -66,7 +66,7 @@
 
 &moisture_nml
     moisture_scheme = 'surface'
-    q0 = 0.1
+    q0 = 0.001
 /
 
 &surface_nml
@@ -88,4 +88,15 @@
     nv_b = 3
     nir_b = 2
     reference_slp = 10000000.0
+/
+
+&socrates_rad_nml
+    lw_spectral_filename = '../../matrixrt/matrixrt/fortran/spectral_files/sp_lw_30_sub_nep_tweak_nomtckd'
+    sw_spectral_filename = '../../matrixrt/matrixrt/fortran/spectral_files/sp_sw_30_sub_nep_final_mstar_nomtckd'
+    inc_h2 = .true.
+    inc_co2 = .false.
+    inc_h2o = .true.
+    inc_ch4 = .true.
+    inc_he = .true.
+    rayleigh_sw = .true.
 /

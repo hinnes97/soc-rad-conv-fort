@@ -6,7 +6,7 @@ LD = ${FC}
 NETCDF = /usr
 LAPACK = /usr/lib/x86_64-linux-gnu
 
-FFLAGS = -g -fbacktrace -fcheck=all -cpp -O2 -I${NETCDF}/include
+FFLAGS = -g -fbacktrace -fcheck=all -cpp -O2 -I${NETCDF}/include -Wall
 LDFLAGS = -L${NETCDF}/lib -lnetcdff -L${LAPACK}/ -llapack -lblas
 CFLAGS = -I${NETCDF}/include
 

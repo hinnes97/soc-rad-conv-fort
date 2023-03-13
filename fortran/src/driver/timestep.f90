@@ -5,8 +5,8 @@ module timestep
   use flux_mod, only: get_fluxes
   use utils, only: linear_log_interp, bezier_interp
   use convection, only: dry_adjust
-  use condense, only : rain_out, cold_trap,q_sat, dew_point_T
-  use adjust_mod, only : calc_q_and_grad, new_adjust
+  use condense, only : rain_out, cold_trap,q_sat, dew_point_T, set_q
+  use adjust_mod, only : new_adjust
   use io, only: dump_data
   implicit none
 
@@ -44,7 +44,7 @@ contains
     ! Work variables
     !====================================================================================
     
-    integer :: i,j,l,m         ! Dummy variables
+    integer :: i,j
     integer :: ktrop 
     integer :: output_interval
     integer :: print_interval
@@ -74,7 +74,8 @@ contains
     !====================================================================================
     ! Main Body
     !====================================================================================
-    
+
+    ! TODO: move to namelist
     print_interval = 100
     output_interval  = 100
     
@@ -90,14 +91,12 @@ contains
     do i=1,nf
        delp(i) = pe(i+1) - pe(i)
     enddo
-    
+
+    if (moisture_scheme /= 'none') call set_q(pf,Tf, q,ktrop)
+
     call get_fluxes(nf, ne, Tf, pf, Te, pe, &
           net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
 
-
-    if (moisture_scheme == 'surface') then
-       call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,ktrop)
-    endif
 
     call print_header
     
@@ -109,22 +108,23 @@ contains
        endif
 
        ! Advance forward one timestep
-       call single_step(pf, pe, delp, Tf,Te, q,Ts, dT, net_F, fup, fdn, s_up, s_dn, olr, dry_mask, &
-                        sensible_heat, accelerate, sens, j, factor, factor_surf, dT_surf, ktrop, dflux_surf)
+       call single_step(pf, pe, delp, Tf,Te, q,Ts, dT, net_F, fup, fdn, &
+            s_up, s_dn, olr, dry_mask,  accelerate,&
+            sens, j, factor, factor_surf, dT_surf, ktrop, dflux_surf)
 
        ! Check to see whether to enter next phase of model run
-       call check_convergence(net_F, sens, Tf, pf, Te, pe, dry_mask,sensible_heat, &
-            accelerate,  stop_switch, j, dflux, Ts,ktrop, dflux_surf, &
-            dT)
+       call check_convergence(net_F, sens, Tf, pe, dry_mask,&
+            stop_switch, j, dflux, Ts, dflux_surf)
 
        ! Output data to screen
        if (mod(j,print_interval) .eq. 0) then
-          call print_update(j, dflux, net_F, dT, Ts, dry_mask, sensible_heat, dflux_surf)
+          call print_update(j, dflux, net_F, dT, Ts, dry_mask, dflux_surf)
        endif
 
        ! Output data to file
        if (mod(j, output_interval) .eq. 0) then
-          call dump_data(file_name, nf,ne,Tf,pf,pe,olr,Finc,Fint,Te,q,fup,fdn,s_dn,s_up,Ts, dry_mask)
+          call dump_data(file_name, nf,ne,Tf,pf,pe,olr,Finc,Fint,&
+                         Te,q,fup,fdn,s_dn,s_up,Ts, dry_mask)
        endif
 
        ! Exit if check_convergence says so
@@ -134,13 +134,14 @@ contains
 
     call print_final_status(j, pf, Tf, Ts, q, dry_mask)
     
-    call dump_data(file_name, nf,ne,Tf,pf,pe,olr,Finc,Fint,Te,q,fup,fdn,s_dn,s_up,Ts, dry_mask)
+    call dump_data(file_name, nf,ne,Tf,pf,pe,olr,Finc,Fint,&
+                   Te,q,fup,fdn,s_dn,s_up,Ts, dry_mask)
 
   end subroutine step
 
-  subroutine single_step(pf, pe, delp, Tf, Te,q, Ts, dT, net_F, fup, fdn, s_up, s_dn, olr, dry_mask,&
-       sensible_heat, accelerate, sens, tstep, factor, factor_surf, dt_surf,&
-       ktrop, dflux_surf)
+  subroutine single_step(pf, pe, delp, Tf, Te,q, Ts, dT, net_F, fup, fdn,&
+                         s_up, s_dn, olr, dry_mask, accelerate, &
+                         sens, tstep, factor, factor_surf, dt_surf, ktrop, dflux_surf)
     
     !====================================================================================
     ! Description
@@ -156,7 +157,6 @@ contains
     real(dp), dimension(:), intent(in) :: pe ! Level pressure
     real(dp), dimension(:), intent(in) :: delp 
 
-    logical, intent(in) :: sensible_heat ! Controls if turbulent heat transfer occurs
     logical, intent(in) :: accelerate    ! Controls adaptive timestepping
 
     integer, intent(in) :: tstep ! Current timestep
@@ -191,21 +191,15 @@ contains
     ! Work variables
     !====================================================================================
     integer :: i
-    integer :: test            ! 
-    
-    real(dp), dimension(size(pe)) :: q_half ! Spec humidity on pe grid
     
     real(dp), dimension(size(pf)) :: Tf_half   ! Temperature at half timestep
-    real(dp), dimension(size(pf)) :: qsat      ! Saturation specific humidity
     real(dp), dimension(size(pf)) :: grad      ! Adiabatic lapse rate dlnT/dlnp
     real(dp), dimension(size(pf)) :: flux_diff ! Divergence of net flux
     
-    real(dp) :: Ts_half     ! Surface temperature at half timestep
     real(dp) :: time_const  ! Multiplies net flux difference to give dT
     real(dp) :: df_surf     ! Net flux at surface
     real(dp) :: olr         ! Outgoing longwave radiation
     real(dp) :: dew_pt      ! Dew point temperature
-    real(dp) :: start, stopper, diff
 
     real(dp) :: minmax_dT, min_T, max_T
 
@@ -345,14 +339,15 @@ contains
 
        ! Convective adjustment happens here
        if (conv_switch) then
-          if (moisture_scheme == 'surface') then
-             call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,  ktrop)
+          if (moisture_scheme /= 'none') then
+             call set_q(pf,Tf, q, ktrop)
              call new_adjust(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
           endif
        endif
 
        ! Ensure final state is at saturation
-       call calc_q_and_grad(pf, delp, Tf, q, dry_mask, olr,  ktrop)
+       if (moisture_scheme /='none') call set_q(pf,Tf, q, ktrop)
+       
 
        ! Interpolate convective adjustment to cell edges
        call interp_to_edges(pf, pe, Tf, Te)
@@ -365,9 +360,8 @@ contains
     
      end subroutine single_step
 
-     subroutine check_convergence(net_F, sens, Tf, pf, Te,pe,dry_mask, sensible_heat, &
-          accelerate,  stop_switch, tstep, dflux, Ts, ktrop, dflux_surf,&
-          dT)
+     subroutine check_convergence(net_F, sens, Tf, pe,dry_mask, &
+          stop_switch, tstep, dflux, Ts,dflux_surf)
        !====================================================================================
        ! Input variables
        !====================================================================================
@@ -375,21 +369,18 @@ contains
        
        real(dp), intent(in) :: sens, dflux_surf      ! Sensible heat
 
-       real(dp), intent(in) :: pf(nf), pe(ne), dT(nf)
+       real(dp), intent(in) :: pe(ne)
        
        logical, intent(in) :: dry_mask(nf)
 
-       integer, intent(in) :: tstep,ktrop
+       integer, intent(in) :: tstep
 
        !====================================================================================
        ! Input/Output Variables
        !====================================================================================
-
-       logical, intent(inout) ::  sensible_heat, accelerate
        
        real(dp), intent(inout) :: dflux(:)
        real(dp), intent(inout) :: Tf(nf)    ! Temperature
-       real(dp), intent(inout) :: Te(ne)    ! Edge temp
 
        real(dp), intent(inout) :: Ts
        !====================================================================================
@@ -402,9 +393,8 @@ contains
        ! Work variables
        !====================================================================================
        
-       integer :: i,j
+       integer :: i
        real(dp) :: g_conv, dew_pt_surf
-       logical :: kink
        
        dflux = 0.0
        
@@ -592,7 +582,7 @@ contains
   end subroutine print_header
   
   subroutine print_update(tstep, dflux, net_F, dT, Ts, dry_mask,  &
-                         sensible_heat, dflux_surf)
+                         dflux_surf)
     !====================================================================================
     ! Description
     !====================================================================================
@@ -609,7 +599,7 @@ contains
     real(dp), intent(in) :: net_F(:) ! Net flux
     real(dp), intent(in) :: dT(:)    ! Temperature change
 
-    logical, intent(in) :: dry_mask(:), sensible_heat
+    logical, intent(in) :: dry_mask(:)
     
     real(dp), intent(in) :: Ts ! Surface temperature
     real(dp), intent(in) :: dflux_surf
@@ -618,7 +608,7 @@ contains
     ! Work variables
     !====================================================================================
 
-    integer :: i,j,imax
+    integer :: i,imax
     
     character(len=40) :: fmt
     
@@ -661,9 +651,7 @@ contains
     ! Work variables
     !====================================================================================
 
-    integer :: i,j
-    
-    character(len=40) :: fmt
+    integer :: i
     
     !====================================================================================
     ! Main body
@@ -687,59 +675,63 @@ contains
 
   subroutine alter_timestep(factor, tstep, dT_old, Tf, dT, &
                             factor_surf, t_surf_old, Ts, dT_surf)
+    !==========================================================================
+    ! Description
+    !==========================================================================    
+    ! Uses adaptive timestepping (Malek 2017) to vary the timestep based
+    ! on whether oscillations in the temperature are detected
+    !==========================================================================
+
+    !==========================================================================
+    ! Input variables
+    !==========================================================================    
 
     real(dp), intent(in) :: Tf(:), dT(:)
     real(dp), intent(in) :: Ts, dT_surf
-    
-    
-    real(dp), intent(inout) :: factor(:)
-    real(dp), intent(inout) :: factor_surf
-
     integer, intent(in) :: tstep
 
-    real(dp), intent(inout) :: dT_old(:)
-    real(dp), intent(inout) :: t_surf_old
+    !==========================================================================
+    ! Mixed input/output
+    !==========================================================================
+
+    real(dp), intent(inout) :: factor(:)   ! Multiplies timestep for acceleration
+    real(dp), intent(inout) :: factor_surf ! Separate factor for the surface
+    real(dp), intent(inout) :: dT_old(:)   ! Memory of old dT for oscillation detection
+    real(dp), intent(inout) :: t_surf_old  ! Same as above but for surface
 
     integer :: i
 
-   do i=1,nf
-    if (factor(i) .lt. 0) then
-       factor(i) = 1.e-10
-    endif
+    ! Adaptive timestep for atmosphere
+    do i=1,nf
+       if (factor(i) .lt. 0) then
+          factor(i) = 1.e-10
+       endif
     
-    if (factor_surf .lt. 0.) factor_surf = 1.e-10
-    
-    if (mod(tstep,6) .eq. 0) then
-       t_surf_old = ts
-    endif
+       if (factor_surf .lt. 0.) factor_surf = 1.e-10
 
-    if (mod(tstep,6) .eq. 0) then
-       dT_old(i) = Tf(i)
-    endif
-
-    if (mod(tstep,6) .eq. 5) then
-
-       if (i .eq. nf) then
-          if (abs(Tf(i) - dT_old(i)) .lt. 3.*abs(dT(i))) then
-          
-             factor(i) = factor(i)/1.5
-          else
-             factor(i) = factor(i) * 1.1
-          endif
-       else
-          
-          if ( abs(Tf(i) - dT_old(i)) .lt. 3.*abs(dT(i))) then
-             factor(i) = factor(i)/1.5
-          else
-             factor(i) = factor(i)*1.1
-          endif
+       ! Set 'old' temperatures
+       if (mod(tstep,6) .eq. 0) then
+          t_surf_old = ts
+          dT_old(i) = Tf(i)
        endif
 
-    endif
+       ! Compare with new temperatures
+       if (mod(tstep,6) .eq. 5) then
+          ! Condition for oscillation
+          if (abs(Tf(i) - dT_old(i)) .lt. 3.*abs(dT(i))) then
+             ! Reduce timestep
+             factor(i) = factor(i)/1.5
+          else
+             ! Increase timestep
+             factor(i) = factor(i) * 1.1
+          endif
+       endif
+       
     
-    if (factor(i) .lt. 1.e-10) factor(i) = 1.e-10
+       if (factor(i) .lt. 1.e-10) factor(i) = 1.e-10
     enddo
 
+    ! Same for surface (is this code redundant?)
     if (mod(tstep,6) .eq. 0) then
        t_surf_old = ts
     endif
