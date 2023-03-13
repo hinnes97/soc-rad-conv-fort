@@ -15,5 +15,5 @@ This code was created with modelling sub-Neptunes with water in mind. The radiat
 The code is setup to treat water vapour as a special component in the atmopshere. Depending on the value of the namelist parameter `moisture_scheme`, water will be treated as follows:
 
 - 'none' - Specific humidity is left alone and set to $q = q_0$
-- 'surface' - There is a surface water ocean, and the atmosphere is assumed to be saturated everywhere (except above the cold trap). Special care is taken when $q_sat(T,p)>1$. At this point, the atmosphere is set to $q=1$ and the temperature is limited to $q(T^*, p) = 1$. Once this point is reached at the bottom of the atmosphere, the model rarely converges and special treatment is required.
-- 'deep' - The specific humidity is set to $\text{min}(q_sat, q_0)$. 
+- 'surface' - There is a surface water ocean, and the atmosphere is assumed to be saturated everywhere (except above the cold trap). Special care is taken when $q_{sat}(T,p)>1$. At this point, the atmosphere is set to $q=1$ and the temperature is limited to $q(T^*, p) = 1$. Once this point is reached at the bottom of the atmosphere, the model rarely converges and special treatment is required.
+- 'deep' - The specific humidity is set to $\text{min}(q_{sat}, q_0)$. 
