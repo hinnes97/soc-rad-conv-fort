@@ -14,7 +14,8 @@ module condense
   real(dp) :: eps = mu_v/mu_d ! Ratio of water to hydrogen molecular weight
 
   real(dp) :: p_nought
-  integer, parameter :: rk = kind(1.0D+00)
+  integer :: a,b
+  
 contains
 
   subroutine newton_iteration(f, dfdx, x1, sol, icode)
@@ -122,7 +123,7 @@ contains
 
     do k=1,size(q)
 
-       call sat_vp(p(k), T(k), psat)
+       call sat_vp(T(k), psat)
        !psat = p_sat(T(k))
        q(k) = eps*psat/p(k)/(1 + (eps - 1)*psat/p(k))
     enddo
@@ -138,7 +139,7 @@ contains
     eps = rdgas/rvgas
 
     ! Find saturation vapour pressure
-    call sat_vp(p, T, sat_p)
+    call sat_vp(T, sat_p)
     sat_p = p_sat(T)
     qsat = (eps*sat_p/p)/(1. + (eps - 1.)* sat_p/p )
     
@@ -155,8 +156,7 @@ contains
     
   end subroutine rain_out
 
-  subroutine sat_vp(p, T, sat_p)
-    real(dp), intent(in) :: p
+  subroutine sat_vp(T, sat_p)
     real(dp), intent(in) :: T
     real(dp), intent(out) :: sat_p
 
@@ -187,8 +187,7 @@ contains
     real(dp), intent(in) :: p(:)
     integer, intent(inout) :: ktrop
 
-    integer :: i(1), j
-    integer :: trop_index
+    integer ::  j
     real(dp) q_min
 
 
@@ -274,8 +273,7 @@ contains
     real(dp), intent(inout), dimension(:) :: T,q ! Temperature and specific humid.
     
 
-    integer :: k, npz, kmax
-    
+    integer :: k, npz    
     !==========================================================================
     ! Main body
     !==========================================================================

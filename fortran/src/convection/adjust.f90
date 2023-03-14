@@ -12,7 +12,6 @@ module adjust_mod
   
   implicit none
 
-    
 contains
 
 
@@ -62,7 +61,7 @@ contains
 
     integer, parameter       :: N_iter = 1000 ! Number of up-down iterations
     
-    real(dp) :: qsat1, qsat2, pfact, grad2, qmin, qcrit,temp
+    real(dp) :: pfact,  qcrit,temp
     real(dp) :: qsats(size(p)), qcrits(size(p))
 
     real(dp) :: grad_check(size(p)), grad_true(size(p))
@@ -70,7 +69,6 @@ contains
     integer :: n,k
     integer :: info, counter
     integer :: npz
-    logical :: conv_switch = .true.
     logical :: condition, quit_adjust
     real(dp) :: f ! Helps global energy balance to be reached
     !==========================================================================
@@ -180,8 +178,8 @@ contains
     !==========================================================================
     ! Local variables
     !==========================================================================
-    real(dp) :: eps = mu_v/mu_d
-    real(dp) :: L, psat, qsat, rsat, num, denom, temp, start, end,t2, ttt
+
+    real(dp) :: L, psat, qsat, rsat, num, denom, temp, t2
 
     !==========================================================================
     ! Main body
@@ -246,8 +244,7 @@ contains
     !==========================================================================
     ! Local variables
     !==========================================================================
-    real(dp)    :: L, eps, psat_temp, rsat_temp, start, end, p_sat_old,ttt
-
+    real(dp)    :: L, rsat_temp, eps, psat_temp
     !==========================================================================
     ! Main body
     !==========================================================================

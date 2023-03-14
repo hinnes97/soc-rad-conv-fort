@@ -1,7 +1,6 @@
 module flux_mod
 
   use params, only: dp, sb, invert_grid, moist_rad, surface, semi_grey_scheme, A_s
-  use condense, only : rain_out
   
 #ifdef SOC
   use socrates_interface_mod, only: run_socrates
