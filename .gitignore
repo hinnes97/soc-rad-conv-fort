@@ -28,8 +28,15 @@ obj/
 #Ignore spectral files
 spectral_files
 
+# Ignore socrates source code
+fortran/src/socrates/src/
+
 # Ignore slurm error output
 *.err
 
 # Makefile
 Makefile
+
+#ignore build
+*build*
+!fortran/build
