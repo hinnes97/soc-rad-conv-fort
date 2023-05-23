@@ -8,9 +8,7 @@ module band_grey_mod
                            lw_fac
   use twostr_module,  only: twostr
   use nc_wrap_mod
-  use phys_mod,       only: i_h2, i_h2o, i_ch4, &
-                            i_nh3, i_co2, i_co, u_vec
-  
+    
   implicit none
 
   integer :: nB
