@@ -39,4 +39,3 @@ Makefile
 
 #ignore build
 *build*
-!fortran/build
