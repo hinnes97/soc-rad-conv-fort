@@ -9,6 +9,6 @@ jobs:
       volumes:
         - ${{ github.workspace }}:/test
     steps:
-      - run: ls
+      - run: /bin/ls
       - run: cd fortran/build
       - run: cmake ..
