@@ -1,5 +1,9 @@
 name: Testing Github Actions
-on: [push]
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cmake
 jobs: 
   compile-code:
     name: Test compilation of code
