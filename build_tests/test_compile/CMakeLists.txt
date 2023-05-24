@@ -1,14 +1,20 @@
+# For compiling part of the code without SOCRATES 
+# Requires a dummy fortran file to act as socrates code
+# For compiling part of the code without SOCRATES 
+# Requires a dummy fortran file to act as socrates code
 # Attempt to make CMake work with my project. Let's see how it goes
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.5)
 PROJECT(soc-rad-conv-fort Fortran)
 
+# Set directory of source files
+set(ROOTDIR ${CMAKE_CURRENT_SOURCE_DIR}/../../fortran)
+
 #Find HDF5
 find_package(HDF5 COMPONENTS Fortran HL)
 message(HDF5=${HDF5_INCLUDE_DIRS})
 message(HDF5=${HDF5_LIBRARIES})
-SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/")
-
+SET(CMAKE_MODULE_PATH "${ROOTDIR}/cmake/Modules/")
 
 # Set fortran flags, change this if you want
 INCLUDE(${CMAKE_MODULE_PATH}/SetFortranFlags.cmake)
@@ -19,6 +25,7 @@ set (NETCDF_F90 "YES")
 find_package(NetCDF REQUIRED)
 
 include_directories(${NETCDF_INCLUDES} ${HDF5_INCLUDE_DIRS})
+link_directories(${CMAKE_SOURCE_DIR}/lib)
 add_definitions(${HDF5_DEFINITIONS})
 
 # There is an error in CMAKE with this flag for pgf90.  Unset it
@@ -29,18 +36,20 @@ ENDIF(FCNAME STREQUAL "pgf90")
 
 # Define executable name
 set(EXE main.exe)  
-set(SRC ${CMAKE_SOURCE_DIR}/src)
+set(SRC ${ROOTDIR}/src)
 set(LIB ${CMAKE_SOURCE_DIR}/lib)
 set(OBJ ${CMAKE_SOURCE_DIR}/obj)
+set(BIN ${CMAKE_SOURCE_DIR}/bin)
 
 # Put module files in the obj directory
 set(CMAKE_Fortran_MODULE_DIRECTORY ${OBJ})
 
-# Put executable in main directory
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN})
 
-# Add separate socrates subdirectory
-add_subdirectory(${SRC}/socrates ${LIB})
+# Dummy socrates
+set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIB})
+add_library(socrates ${CMAKE_SRC_DIR}/src/dummy_soc.f90)
+target_link_libraries(socrates ${NETCDF_LIBRARIES_F90} ${HDF5_LIBRARIES})
 
 # Find all source files
 file(GLOB_RECURSE SRC_FILES
@@ -49,7 +58,7 @@ file(GLOB_RECURSE SRC_FILES
  )
 
  # Remove socrates to avoid double-counting
-set (EXCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/socrates/")
+set (EXCLUDE_DIR "${ROOTDIR}/src/socrates/")
 foreach (TMP_PATH ${SRC_FILES})
   string (FIND ${TMP_PATH} ${EXCLUDE_DIR} EXCLUDE_DIR_FOUND)
     if (NOT ${EXCLUDE_DIR_FOUND} EQUAL -1)
@@ -72,4 +81,5 @@ target_link_libraries(${EXE}
   ${NETCDF_LIBRARIES_F90}
   ${HDF5_LIBRARIES}
   )
+
 

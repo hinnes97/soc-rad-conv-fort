@@ -5,7 +5,6 @@ __pycache__
 *.mod
 *.exe
 *cppdefs
-obj/
 
 # Ignore output
 *.nc
@@ -37,6 +36,3 @@ fortran/src/socrates/src/
 # Makefile
 Makefile
 
-#ignore build
-*build*
-!fortran/build
