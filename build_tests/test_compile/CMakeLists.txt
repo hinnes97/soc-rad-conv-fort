@@ -48,7 +48,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN})
 
 # Dummy socrates
 set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIB})
-add_library(socrates ${CMAKE_SRC_DIR}/src/dummy_soc.f90)
+add_library(socrates ${CMAKE_SOURCE_DIR}/src/dummy_soc.f90)
 target_link_libraries(socrates ${NETCDF_LIBRARIES_F90} ${HDF5_LIBRARIES})
 
 # Find all source files
