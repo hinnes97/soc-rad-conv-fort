@@ -6,10 +6,15 @@ import sys
 import f90nml
 
 # Build executable, change -r SOC for other radiation scheme as required
-err = os.system('./build_old -r SOC')
-
+#err = os.system('./build_old -r SOC')
+err = os.system('cd build && cmake ..')
 if (err != 0):
-    exit('ERROR: Fortran compilation failed')
+    exit('ERROR: CMake failed')
+    
+err = os.system('cd build && make')
+if (err!=0):
+    exit('Error: Fortran compilation failed')
+    
 
 nml = f90nml.read('input.nml')
 exp_name = nml['io_nml']['output_file'].split('/')[-1].split('.')[0]
