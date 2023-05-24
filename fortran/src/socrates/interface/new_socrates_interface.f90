@@ -26,12 +26,12 @@ MODULE socrates_interface_mod
   !USE constants_mod, only: grav, rdgas, rvgas, cp_air
   USE soc_constants_mod  
   USE socrates_config_mod
-  USE params, ONLY: dp
+  use, intrinsic :: iso_fortran_env
   use rad_ccf, ONLY: c_virtual
 
   IMPLICIT NONE
 
-
+  integer, parameter:: dp = real64
   ! Input spectra
   TYPE (StrSpecData) :: spectrum_calc
   TYPE (StrSpecData) :: spectrum_lw, spectrum_lw_hires

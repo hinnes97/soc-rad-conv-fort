@@ -16,7 +16,7 @@
 &io_nml
     init_from_file = .false.
     input_file = 'test_dir/test_F170_noconv_nomtckd.nc'
-    output_file = 'test_dir/test_F250_noconv_nomtckd.nc'
+    output_file = 'test_dir/testing.nc'
 /
 
 &param_nml

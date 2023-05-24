@@ -1,16 +1,16 @@
 name: Testing Github Actions
-on: 
-  push:
-    branches:
-      -cmake
+defaults:
+  run:
+    shell: bash
+    working-directory: build_tests/test_compile/build
+on: push
 jobs: 
   compile-code:
     name: Test compilation of code
     runs-on: ubuntu-latest
     container: 
       image: hamishi/fortran-netcdf
-      volumes:
-        - ${{ github.workspace }}
-    steps:
-      - run: cd fortran/build
+    steps:      
+      - uses: actions/checkout@v3
       - run: cmake ..
+      - run: make 

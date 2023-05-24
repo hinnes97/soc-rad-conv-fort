@@ -8,7 +8,7 @@ module band_grey_mod
                            lw_fac
   use twostr_module,  only: twostr
   use nc_wrap_mod
-  
+
   implicit none
 
   integer :: nB

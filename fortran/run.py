@@ -6,7 +6,7 @@ import sys
 import f90nml
 
 # Build executable, change -r SOC for other radiation scheme as required
-err = os.system('./build -r SOC')
+err = os.system('./build_old -r SOC')
 
 if (err != 0):
     exit('ERROR: Fortran compilation failed')
