@@ -7,7 +7,7 @@ jobs:
     container: 
       image: hamishi/fortran-netcdf
       volumes:
-        - ${{ github.workspace }}
+        - ${{ github.workspace }}:/test
     steps:
       - run: ls
       - run: cd fortran/build
