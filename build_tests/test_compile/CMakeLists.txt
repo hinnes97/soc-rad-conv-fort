@@ -64,6 +64,15 @@ foreach (TMP_PATH ${SRC_FILES})
     endif ()
 endforeach(TMP_PATH)
 
+# Remove archive directory from compilation
+set (EXCLUDE_DIR "${ROOTDIR}/src/archive/")
+foreach (TMP_PATH ${SRC_FILES})
+  string (FIND ${TMP_PATH} ${EXCLUDE_DIR} EXCLUDE_DIR_FOUND)
+    if (NOT ${EXCLUDE_DIR_FOUND} EQUAL -1)
+        list (REMOVE_ITEM SRC_FILES ${TMP_PATH})
+    endif ()
+endforeach(TMP_PATH)
+
 # Add executable
 add_executable(${EXE} ${SRC_FILES})
 target_compile_definitions(${EXE} PUBLIC SOC)
