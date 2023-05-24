@@ -1,8 +1,5 @@
 name: Testing Github Actions
-on:
-  push:
-    branches:
-      - cmake
+on: [push]
 jobs: 
   compile-code:
     name: Test compilation of code
