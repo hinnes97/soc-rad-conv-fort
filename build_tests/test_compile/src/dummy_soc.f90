@@ -7,6 +7,10 @@ module socrates_interface_mod
 
   integer, parameter ::  dp = real64
 contains
+  
+  subroutine socrates_init()
+  end subroutine socrates_init
+  
   subroutine run_socrates(rad_lat, rad_lon, temp_in, q_in, h2_in, ch4_in, he_in, t_surf_in, p_full_in,&
     p_half_in, z_full_in, z_half_in, albedo_in, &
        temp_tend, net_surf_sw_down, surf_lw_down, net_flux, lw_up, lw_dn,sw_up, sw_dn)  

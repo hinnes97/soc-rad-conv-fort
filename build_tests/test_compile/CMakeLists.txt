@@ -71,6 +71,7 @@ foreach (TMP_PATH ${SRC_FILES})
 endforeach(TMP_PATH)
 # Add executable
 add_executable(${EXE} ${SRC_FILES})
+target_compile_definitions(${EXE} PUBLIC SOC)
 
 # Make sure socrates compiled before executable (is this necessary?)
 add_dependencies(${EXE} socrates)
