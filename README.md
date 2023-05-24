@@ -8,7 +8,7 @@ SOCRATES source code is proprietry and not under version control here. The `src`
 
 The parameters of the scheme are set in `input.nml`. 
 
-Currently, the code is only supported using the SOCRATES radiation scheme. There are other radiation schemes available (e.g. semi-grey) that can be activated by changing the `-r SOC` option at the beginning of `run.py` to another compiler option. This prevents the SOCRATES source from being compiled.
+Currently, the code is only supported using the SOCRATES radiation scheme. There are other radiation schemes available (e.g. semi-grey) that can be activated by changing the compiler definition `SOC` set in the main `CMakeLists.txt` file. This prevents the SOCRATES source from being compiled.
 
 This code was created with modelling sub-Neptunes with water in mind. The radiation scheme only includes CH4, H2, He and H2O in ratios specified in `flux.f90` (hard-coded). To add more species, this will need to be hacked manually. Development on a generalised tracer treatment is on a long to do list (see issues).
 
