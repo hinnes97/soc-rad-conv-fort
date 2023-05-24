@@ -1,4 +1,8 @@
 name: Testing Github Actions
+defaults:
+  run:
+    shell: bash
+    working-directory: build_tests/test_compile/build
 on: push
 jobs: 
   compile-code:
@@ -6,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     container: 
       image: hamishi/fortran-netcdf
-    steps:
+    steps:      
       - uses: actions/checkout@v3
-      - run: mkdir -p ./fortran/build 
-      - run: cd ./fortran/build && cmake ..
+      - run: cmake ..
+      - run: make 
 
