@@ -1,0 +1,16 @@
+name: Testing Github Actions
+on: 
+  push:
+    branches:
+      -cmake
+jobs: 
+  compile-code:
+    name: Test compilation of code
+    runs-on: ubuntu-latest
+    container: 
+      image: hamishi/fortran-netcdf
+      volumes:
+        - ${{ github.workspace }}
+    steps:
+      - run: cd fortran/build
+      - run: cmake ..
