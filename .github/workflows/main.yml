@@ -1,9 +1,6 @@
 name: Testing Github Actions
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - cmake
 jobs: 
   compile-code:
     name: Test compilation of code
@@ -13,5 +10,6 @@ jobs:
       volumes:
         - ${{ github.workspace }}
     steps:
+      - run: ls
       - run: cd fortran/build
       - run: cmake ..
