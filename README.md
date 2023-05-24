@@ -2,7 +2,7 @@
 Fortran radiative-convective equilibrium code using met office SOCRATES radiation code
 
 ## Getting started
-The main runscript for the code is `run.py`. The code should run on calling `python run.py`. Under the hood, this runscript calls `./build`, executing the compilation of the fortran code. The makefile is created using the GFDL tool `mkmf`, which should automatically handle the fortran dependencies of the main code
+The main runscript for the code is `run.py`. The code should run on calling `python run.py`. Under the hood, this runscript uses `cmake` to create a `Makefile`, which is then compiles the fortran code. Hopefully if your system has a fortran compiler and netcdf installed, nothing needs to be changed in the build settings.
 
 SOCRATES source code is proprietry and not under version control here. The `src` directory should be put in the `src/socrates/` directory next to the `interface` directory.
 
