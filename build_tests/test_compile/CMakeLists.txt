@@ -12,8 +12,6 @@ set(ROOTDIR ${CMAKE_CURRENT_SOURCE_DIR}/../../fortran)
 
 #Find HDF5
 find_package(HDF5 COMPONENTS Fortran HL)
-message(HDF5=${HDF5_INCLUDE_DIRS})
-message(HDF5=${HDF5_LIBRARIES})
 SET(CMAKE_MODULE_PATH "${ROOTDIR}/cmake/Modules/")
 
 # Set fortran flags, change this if you want
@@ -66,9 +64,6 @@ foreach (TMP_PATH ${SRC_FILES})
     endif ()
 endforeach(TMP_PATH)
 
-foreach (TMP_PATH ${SRC_FILES})
-  message(${TMP_PATH})
-endforeach(TMP_PATH)
 # Add executable
 add_executable(${EXE} ${SRC_FILES})
 target_compile_definitions(${EXE} PUBLIC SOC)

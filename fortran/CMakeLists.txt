@@ -5,8 +5,6 @@ PROJECT(soc-rad-conv-fort Fortran)
 
 #Find HDF5
 find_package(HDF5 COMPONENTS Fortran HL)
-message(HDF5=${HDF5_INCLUDE_DIRS})
-message(HDF5=${HDF5_LIBRARIES})
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 
@@ -57,9 +55,6 @@ foreach (TMP_PATH ${SRC_FILES})
     endif ()
 endforeach(TMP_PATH)
 
-foreach (TMP_PATH ${SRC_FILES})
-  message(${TMP_PATH})
-endforeach(TMP_PATH)
 # Add executable
 add_executable(${EXE} ${SRC_FILES})
 

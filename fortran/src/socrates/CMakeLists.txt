@@ -9,7 +9,6 @@ list(FILTER SOC_SRC EXCLUDE REGEX "/src/general/*")
 list(FILTER SOC_SRC EXCLUDE REGEX "src/scatter/*")
 
 add_library(socrates SHARED ${SOC_SRC})
-message(${NETCDF_INCLUDES})
 
 target_link_libraries(socrates ${NETCDF_LIBRARIES_F90}
   ${HDF5_LIBRARIES})
