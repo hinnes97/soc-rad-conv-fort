@@ -1,5 +1,5 @@
 name: Testing Github Actions
-on: workflow_dispatch
+on: push
 jobs: 
   compile-code:
     name: Test compilation of code
