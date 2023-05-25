@@ -1,6 +1,4 @@
-# Attempt to make CMake work with my project. Let's see how it goes
-
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.5)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
 PROJECT(soc-rad-conv-fort Fortran)
 
 #Find HDF5
@@ -36,9 +34,10 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${OBJ})
 
 # Put executable in main directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIB})
 
 # Add separate socrates subdirectory
-add_subdirectory(${SRC}/socrates ${LIB})
+add_subdirectory(${SRC}/socrates ${OBJ})
 
 # Find all source files
 file(GLOB_RECURSE SRC_FILES
@@ -66,6 +65,7 @@ endforeach(TMP_PATH)
 
 # Add executable
 add_executable(${EXE} ${SRC_FILES})
+target_compile_definitions(${EXE} PUBLIC SOC)
 
 # Make sure socrates compiled before executable (is this necessary?)
 add_dependencies(${EXE} socrates)

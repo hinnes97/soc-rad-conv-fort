@@ -6,11 +6,17 @@ import sys
 import f90nml
 
 # Build executable, change -r SOC for other radiation scheme as required
-#err = os.system('./build_old -r SOC')
-err = os.system('cd build && cmake ..')
+
+# Only want to invoke cmake if there is a new file in the src 
+os.system('find src -type f \( -path "*/socrates/src*" -prune -o -print \) > ./build/srclist_new.txt')
+err = os.system('cmp -s ./build/srclist_new.txt ./build/srclist.txt')
 if (err != 0):
-    exit('ERROR: CMake failed')
-    
+    # Source list has changed, re-invoke cmake
+    err = os.system('cd build && cmake ..')
+    if (err != 0):
+        exit('ERROR: CMake failed')
+
+os.system('mv ./build/srclist_new.txt ./build/srclist.txt')
 err = os.system('cd build && make')
 if (err!=0):
     exit('Error: Fortran compilation failed')

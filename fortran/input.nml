@@ -91,8 +91,8 @@
 /
 
 &socrates_rad_nml
-    lw_spectral_filename = '../../matrixrt/matrixrt/fortran/spectral_files/sp_lw_30_sub_nep_tweak_nomtckd'
-    sw_spectral_filename = '../../matrixrt/matrixrt/fortran/spectral_files/sp_sw_30_sub_nep_final_mstar_nomtckd'
+    lw_spectral_filename = '../../matrixrt/matrixrt/fortran/spectral_files/sp_lw_30_sub_nep_tweak'
+    sw_spectral_filename = '../../matrixrt/matrixrt/fortran/spectral_files/sp_sw_30_sub_nep_final_mstar'
     inc_h2 = .true.
     inc_co2 = .false.
     inc_h2o = .true.

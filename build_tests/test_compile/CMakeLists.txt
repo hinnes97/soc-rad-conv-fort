@@ -1,10 +1,6 @@
 # For compiling part of the code without SOCRATES 
 # Requires a dummy fortran file to act as socrates code
-# For compiling part of the code without SOCRATES 
-# Requires a dummy fortran file to act as socrates code
-# Attempt to make CMake work with my project. Let's see how it goes
-
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.5)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
 PROJECT(soc-rad-conv-fort Fortran)
 
 # Set directory of source files
