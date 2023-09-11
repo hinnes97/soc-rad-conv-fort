@@ -459,6 +459,7 @@ if(socrates_hires_mode) then
                soc_flux_down,                           &
                soc_flux_up,                             &
                soc_heating_rate)
+
     endif
 
 

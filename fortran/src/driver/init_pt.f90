@@ -1,6 +1,7 @@
 module init_pt_mod
   use params, only: log_bot_p, log_top_p, p_grid, frac, bot_t, top_t, dp
   use utils, only: logspace
+  use condense, only : dew_point_T
   implicit none
   
 contains
@@ -32,19 +33,25 @@ contains
      ! Initialise temperature on a dry adiabat
      do i=1,npz
         Tf(i) = bot_t*(pf(i)/pe(npz+1))**(2./7.)
+        call dew_point_T(pf(i), Tf(i))
      enddo
 
      do i=1,npz+1
         Te(i) = bot_t*(pe(i)/pe(npz+1))**(2./7.)
+        call dew_point_T(pe(i), Te(i))
      enddo
 
-     ! Limit minimum temperature of atmosphere
+    ! Limit minimum temperature of atmosphere
      do i=1,npz
         Tf(i) = max(Tf(i), top_t)
      enddo
-
+!
      do i=1,npz+1
         Te(i) = max(Te(i), top_t)
+     enddo
+
+     do i=1,npz
+        write(*,*) pf(i), Tf(i)
      enddo
    end subroutine init_pt
    

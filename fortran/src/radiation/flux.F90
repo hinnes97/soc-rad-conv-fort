@@ -1,20 +1,13 @@
 module flux_mod
 
-  use params, only: dp, sb, invert_grid, moist_rad, surface, semi_grey_scheme, A_s
+  use params, only: dp, sb, invert_grid, moist_rad, surface, semi_grey_scheme, A_s, rad_scheme
   
-#ifdef SOC
   use socrates_interface_mod, only: run_socrates
-#elif defined SHORT_CHAR
   use radiation_Kitzmann_noscatt, only: Kitzmann_TS_noscatt
   use toon_mod, only : toon_driver
   use sc_split_mod, only: sc_split
-#elif defined PICKET
-  use k_Rosseland_mod, only: k_func_Freedman_local, gam_func_Parmentier, AB_func_Parmentier
-  use short_char_ross, only: short_char_ross_driver
-  use radiation_mod, only : radiation_interface
-#elif defined TWOSTR
-  use band_grey_mod, only : run_twostr
-#endif
+  use ts_short_char_bezier_mod, only: ts_short_char_Bezier
+
   
   implicit none
 contains
@@ -35,25 +28,13 @@ contains
 
     integer :: i
     
-#ifdef SOC
-    
     real(dp) :: rad_lat, rad_lon, t_surf_in, albedo_in, net_surf_sw_down, surf_lw_down
     real(dp), dimension(size(Tf)) :: q_in, temp_tend, h2_in, ch4_in, he_in
     
-#elif defined PICKET
-    real(dp), dimension(3) :: gam_V, Beta_V, A_Bond
-    real(dp), dimension(2) :: beta
-    real(dp) :: gam_1, gam_2, Tint, Tirr
-    real(dp) :: met
-    real(dp), dimension(2,nf) :: kIR_Ross
-    real(dp), dimension(3,nf) :: kV_Ross        
 
-#elif defined TWOSTR
-    real(dp), allocatable :: delp(:)
-#endif
+    select case(rad_scheme)
 
-#ifdef SOC
-    
+       case ('socrates')
     rad_lat = 0._dp
     rad_lon = 0._dp
     !q_in = 0.001_dp*9._dp
@@ -86,18 +67,17 @@ contains
          temp_tend, net_surf_sw_down, surf_lw_down, net_F, fup, fdn, s_up, s_dn)
     olr = fup(1)
 
-    
-#elif defined SHORT_CHAR
-
-    select case(semi_grey_scheme)
-       
     case('short_char')
        !call Kitzmann_TS_noscatt(nf, ne, Te, pe, &
        !     net_F, mu_s, Ts, olr, q, fup, fdn, s_dn)
        !write(*,*) 'short char', net_F
        call sc_split(nf, ne, Te, pe, Tf, &
             net_F, mu_s, Ts, olr, q, fup, fdn, s_dn)
-       !write(*,*) 'sc_split', net_F
+!write(*,*) 'sc_split', net_F
+
+    case('short_char_elsie')
+       call ts_short_char_Bezier(.true., .false., nf, ne, Ts, Tf, pf, pe, &
+            net_F, mu_s, olr, fup, fdn, s_dn, 0.0_dp, q)
     case('toon')
        if ((moist_rad .and. surface)) then
           call toon_driver(Te, pe, net_F, olr, s_dn, fdn, fup, q, Ts)
@@ -111,50 +91,5 @@ contains
     end select
 
        
-
-#elif defined PICKET
-    met =0.0_dp
-    Tint = (Fint/sb)**0.25_dp
-    Tirr = (Finc/sb)**0.25_dp
-    call gam_func_Parmentier(Tint, Tirr, 2, 0._dp, 0._dp, gam_V, Beta_V, Beta, gam_1, gam_2, A_Bond)
-    do i=1,nf
-       call k_func_Freedman_local(Tf(i), pf(i)*10, met, kIR_Ross(1,i))
-       kIR_Ross(1,i) = kIR_Ross(1,i)*0.1_dp
-       kV_Ross(:,i) = kIR_Ross(1,i)*gam_V
-
-       kIR_Ross(2,i) = kIR_Ross(1,i) * gam_2
-       kIR_Ross(1,i) = kIR_Ross(1,i) * gam_1
-    end do
-
-    !A_Bond = 0.0_dp
-    call short_char_ross_driver(nf,ne,Te,pe,net_F,1.0_dp,Finc, Fint,olr,kV_Ross,kIR_Ross,Beta_V, &
-    Beta, A_Bond)!, &
-    !kV_Ross, kIR_Ross, Beta_V, Beta, A_Bond)
-
-    !call radiation_interface(pe,pf,Tf,Tf(nf),net_F, &
-    !     kV_Ross, kIR_Ross, Beta_V, Beta, A_bond)
-
-#elif defined TWOSTR
-
-    if (invert_grid) then
-       allocate(delp(nf+1))
-       do i=2,nf
-          delp(i) = pf(i) - pf(i-1)
-       enddo
-       delp(1) = pf(1) - pe(1)
-       delp(nf+1) = pe(nf+1) - pf(nf)
-    else
-       allocate(delp(nf))
-       do i=1,nf
-          delp(i) = pe(i+1) - pe(i)
-       enddo
-    endif
-    
-    call run_twostr(nf, Tf, Te, pf, pe, delp, q, net_F, olr)
-
-    deallocate(delp)
-#endif
-    
-    
   end subroutine get_fluxes
 end module flux_mod

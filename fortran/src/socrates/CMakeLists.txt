@@ -7,6 +7,7 @@ list(FILTER SOC_SRC EXCLUDE REGEX "/src/aux/*" )
 list(FILTER SOC_SRC EXCLUDE REGEX "/src/correlated_k/*")
 list(FILTER SOC_SRC EXCLUDE REGEX "/src/general/*")
 list(FILTER SOC_SRC EXCLUDE REGEX "src/scatter/*")
+list(FILTER SOC_SRC EXCLUDE REGEX "src_old/*")
 
 add_library(socrates SHARED ${SOC_SRC})
 

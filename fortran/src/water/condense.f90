@@ -291,6 +291,9 @@ contains
        enddo
        ! Don't do moist convection if entire atmosphere is at q0
        if (q(ktrop) .gt. q0) ktrop = npz
+
+    else if (moisture_scheme=='const') then
+       q(:) = q0
     endif
 
    end subroutine set_q

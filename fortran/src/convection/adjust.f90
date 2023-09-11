@@ -6,7 +6,7 @@ module adjust_mod
        L_vap => H2O_L_vaporization_TriplePoint, CP_v => H2O_cp, CP_d => H2He_solar_cp, &
        mu_d => H2He_solar_MolecularWeight, mu_v => H2O_MolecularWeight, Rstar
 
-  use params, only : dp, Finc, inhibited, accelerate
+  use params, only : dp, Finc, inhibited, accelerate, Fint
   use condense, only: q_sat, cold_trap, dew_point_T
   use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
   
@@ -95,31 +95,35 @@ contains
        call q_sat(p, T, qsats)
        
        do k=npz-1,max(ktrop, 1),-1
+
+          if (p(k+1) .lt. 100.) then
+             cycle
+          endif
           call gradient(p(k+1),T(k+1),grad(k), temp)
+
+          ! Hacking to make dry
           qcrit = 1./(1._dp - mu_d/mu_v) /temp
           
           qcrits(k) = qcrit
           if (n.eq. 1 .and. tstep .gt. 1000 .and. accelerate) then
-             f =  (Finc/olr)**(0.001_dp)
+             f =  ((Finc+Fint)/olr)**(0.0001_dp)
           else
              f = 1.
           endif
              
-          if (qsats(k+1) .gt. 1) then
-             call dew_point_T(p(k+1), T(k+1))
+!          if (qsats(k+1) .gt. 1) then
+!             call dew_point_T(p(k+1), T(k+1))
+!
+!             if ((Finc/olr)**(0.01_dp) .lt. 1) then
+!                T(k+1) = T(k+1)*(Finc/olr)**(0.01_dp)
+!             else
+!                mask(k+1) = .true.
+!                cycle
+!             endif
+!             
+!             
+!          endif
 
-             if ((Finc/olr)**(0.01_dp) .lt. 1) then
-                T(k+1) = T(k+1)*(Finc/olr)**(0.01_dp)
-             else
-                mask(k+1) = .true.
-                cycle
-             endif
-             
-             
-          endif
-
-!       enddo
-!    enddo
     
               pfact =exp(grad(k)*log(p(k)/p(k+1)))
               

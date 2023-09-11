@@ -212,14 +212,16 @@ contains
     if (surface)  then
        Te(ne) = Ts
     else
-       Ts = Te(ne)
+      Ts = Te(ne)
     endif
 
-    ! Calls radiation driver
+!    q = 1.0
+! Calls radiation driver
     call get_fluxes(nf, ne, Tf, pf, Te, pe, &
-            net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
-
-    ! Step half forwards
+         net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
+!    write(*,*) 'olr', olr
+!    stop
+!    ! Step half forwards
        do i=1,nf
           if (accelerate) then
              time_const = factor(i) * pf(nf) / max((abs(net_F(i+1) - net_F(i))*1000. ), 1.e-30)**0.9 / (pe(ne) - pe(nf))
@@ -244,12 +246,12 @@ contains
        else
           Ts = Te(ne)
        endif
-    
+
        ! Call radiation scheme at half timestep
        call get_fluxes(nf, ne, Tf_half, pf, Te, pe,  &
             net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
 
-    
+
        if (.not. surface) then 
           net_F(ne) = Fint
        endif
@@ -265,25 +267,29 @@ contains
 
              if ((i .eq. nf) .and. surface) then
              
-                ! Do turbulent heat exchange between surface and lowest atmospheric layer
-                Sens = cpair*pf(nf)/rdgas/Tf(nf) * C_d * U * (Tf(nf) - Ts)
-                
-                df_surf = ( s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens)
+! Do turbulent heat exchange between surface and lowest atmospheric layer
+                if (sensible_heat) then
+                   Sens = cpair*pf(nf)/rdgas/Tf(nf) * C_d * U * (Tf(nf) - Ts)
+                endif
+                df_surf = ( s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens + Fint)
                 dflux_surf = df_surf/sb/Ts**4
                 
                 flux_diff(i) = flux_diff(i)  - Sens
                 dT_surf = factor_surf * pf(nf)/(abs(df_surf)*1000.)**0.9/(pe(ne) - pe(nf)) * (df_surf)
+                
 
                 ! Step forwards in time
                 Ts = Ts + dT_surf
 
                 ! If surface is liquid water, then temperature cannot exceed temperature
-                ! where psat(T)>p_s. 
-                call dew_point_T(pe(ne), dew_pt)
-                if (Ts .gt. dew_pt) then
-                   Ts = dew_pt
-                endif
+! where psat(T)>p_s.
 
+                if (moisture_scheme=='surface') then
+                   call dew_point_T(pe(ne), dew_pt)
+                   if (Ts .gt. dew_pt) then
+                      Ts = dew_pt
+                   endif
+                endif
              endif
                   
 
@@ -301,23 +307,25 @@ contains
              if ((i.eq. nf) .and. surface) then
                 Sens = cpair*pf(nf)/rdgas/Tf(nf) * C_d * U * (Tf(nf) - Ts)
                 
-                df_surf = ( s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens)
+                df_surf = ( s_dn(ne)*(1-A_s) - fup(ne) + fdn(ne)  + Sens + Fint)
                 dflux_surf = df_surf/sb/Ts**4
                 
                 flux_diff(i) = flux_diff(i)  - Sens
 
                 dT_surf = df_surf/depth/rho_s/cp_s * del_time
 
-                ! Step forwards in time
+! Step forwards in time
+                dT_surf = min(max(dT_surf, -minmax_dT), minmax_dT)
                 Ts = Ts + dT_surf
 
                 ! If surface is liquid water, then temperature cannot exceed temperature
-                ! where psat(T)>p_s. 
-                call dew_point_T(pe(ne), dew_pt)
-                if (Ts .gt. dew_pt) then
-                   Ts = dew_pt
+! where psat(T)>p_s.
+                if (moisture_scheme=='surface') then
+                   call dew_point_T(pe(ne), dew_pt)
+                   if (Ts .gt. dew_pt) then
+                      Ts = dew_pt
+                   endif
                 endif
-
              endif
              
           endif
@@ -354,10 +362,10 @@ contains
 
        if (surface)  then
           Te(ne) = Ts
-       else
+      else
           Ts = Te(ne)
        endif
-    
+
      end subroutine single_step
 
      subroutine check_convergence(net_F, sens, Tf, pe,dry_mask, &

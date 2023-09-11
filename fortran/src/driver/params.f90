@@ -51,6 +51,8 @@ module params
   character(len=20) :: p_grid = 'log'
   ! Fraction of grid to be in hires trop
   integer :: frac = 3
+! Radiation scheme
+  character(len=40) :: rad_scheme='short_char'
 
   ! -----------------------------------------------------------------------------
   !                           RADIATION
@@ -86,6 +88,11 @@ module params
   logical :: moist_rad = .false.
   ! Opacity for water vapour (m^2/kg)
   real(dp) :: kappa_q = 0.00789463795397635
+  real(dp) :: kappa_lw_h2o = 0.01
+  real(dp) :: kappa_sw_h2o = 5.e-4
+  real(dp) :: f
+  real(dp) :: flw
+  real(dp) :: k2_lw_h2o, k2_sw_h2o
   
   ! -----------------------------------------------------------------------------
   !                           TIMESTEPPING
@@ -175,7 +182,7 @@ module params
   logical :: sensible_heat
   
   namelist /control_nml/ nf, matrix_rt, surface
-  namelist /initialisation_nml/ log_top_p, log_bot_p, bot_t, top_t, p_grid, frac
+  namelist /initialisation_nml/ log_top_p, log_bot_p, bot_t, top_t, p_grid, frac, rad_scheme
   namelist /io_nml/ init_from_file, input_file, output_file
   namelist /param_nml/ rdgas, grav, cpair, Rcp
   namelist /timestep_nml/ Nt, const, del_time, accelerate
@@ -183,7 +190,8 @@ module params
   namelist /convection_nml/ conv_scheme, passes, inhibited, conv_switch
   namelist /radiation_nml/ Finc, Fint 
   namelist /band_grey_nml/ opacity_dir, invert_grid,sw_fac, lw_fac
-  namelist /semi_grey_nml/ kappa_lw, kappa_sw, moist_rad, kappa_q, semi_grey_scheme
+  namelist /semi_grey_nml/ kappa_lw, kappa_sw, moist_rad, kappa_q, semi_grey_scheme,&
+       kappa_lw_h2o, kappa_sw_h2o,f,flw, k2_lw_h2o, k2_sw_h2o
   namelist /moisture_nml/ moisture_scheme, q0
   namelist /surface_nml/ cp_s, A_s, surf_const, C_d, depth, U, rho_s, sensible_heat
   
