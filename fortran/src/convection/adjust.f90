@@ -5,7 +5,7 @@ module adjust_mod
   use phys, only : T_TP => H2O_TriplePointT, P_TP => H2O_TriplePointP, L_sub => H2O_L_sublimation, &
        L_vap => H2O_L_vaporization_TriplePoint, CP_v => H2O_cp, CP_d => H2He_solar_cp, &
        mu_d => H2He_solar_MolecularWeight, mu_v => H2O_MolecularWeight, Rstar
-
+       
   use params, only : dp, Finc, inhibited, accelerate, Fint
   use condense, only: q_sat, cold_trap, dew_point_T
   use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
@@ -59,13 +59,14 @@ contains
     ! Tune these parameters as necessasry
     real(dp), parameter          :: delta = 0.0001 ! Small number speeds up convergence
 
-    integer, parameter       :: N_iter = 1000 ! Number of up-down iterations
+    integer, parameter       :: N_iter = 100! Number of up-down iterations
     
     real(dp) :: pfact,  qcrit,temp
     real(dp) :: qsats(size(p)), qcrits(size(p))
 
     real(dp) :: grad_check(size(p)), grad_true(size(p))
-
+    real(dp) :: rhos(size(p)), Rs(size(p)), T_lifts(size(p)),q_lifts(size(p)), T_virts(size(p))
+    real(dp):: T_virt_lifts(size(p))
     integer :: n,k
     integer :: info, counter
     integer :: npz
@@ -88,7 +89,6 @@ contains
     !do while (.not. quit_adjust .and. n .lt. N_iter)
        
     do n=1,N_iter
-
        grad_check = 0.0_dp
        grad_true = 0.0_dp
        
@@ -101,12 +101,14 @@ contains
           endif
           call gradient(p(k+1),T(k+1),grad(k), temp)
 
-          ! Hacking to make dry
+! Hacking to make dry
+          grad(k) = (Rstar/mu_d * 0.65 + Rstar/mu_v * 0.35)/(cp_d *0.65 + cp_v*0.35)
           qcrit = 1./(1._dp - mu_d/mu_v) /temp
+          qcrits(k) = qcrit
           
           qcrits(k) = qcrit
           if (n.eq. 1 .and. tstep .gt. 1000 .and. accelerate) then
-             f =  ((Finc+Fint)/olr)**(0.0001_dp)
+             f =  ((Finc+Fint)/olr)**(0.001_dp)
           else
              f = 1.
           endif
@@ -125,8 +127,14 @@ contains
 !          endif
 
     
-              pfact =exp(grad(k)*log(p(k)/p(k+1)))
-              
+          pfact =exp(grad(k)*log(p(k)/p(k+1)))
+
+          !T_lifts(k) = T(k+1)*pfact*(1+delta)
+
+          !T_virts(k) = T(k)*(q(k)*(mu_d/mu_v - 1) + 1.)
+          !call q_sat(p(1:npz-1), T_lifts(1:npz-1), q_lifts(1:npz-1))
+          !T_virt_lifts(k) = T_lifts(k)*(q_lifts(k)*(mu_d/mu_v - 1.) + 1.0)
+          
               if (inhibited) then
                  ! Do moisture inhibition
                  condition = (  (T(k) - T(k+1)*pfact*(1 + delta))*(qcrit - q(k+1)) .lt. 0)
@@ -135,7 +143,7 @@ contains
                  condition = ( (T(k) - T(k+1)*pfact*(1+delta)) .lt. 0 )
               endif
               
-              if (condition .and. q(k+1) .gt. qsats(k+1) - 1.e-10) then
+              if (condition ) then!.and. q(k+1) .gt. qsats(k+1) - 1.e-10) then
                  T(k+1) = (T(k)*delp(k) + T(k+1)*delp(k+1))/(delp(k+1) + pfact*delp(k))
                  T(k+1) = f*T(k+1)
                  T(k) = f*T(k+1)*pfact
@@ -158,7 +166,19 @@ contains
 !!$              endif
 !!$           enddo
         enddo ! do n=1,N_iter
-        
+
+!        do k=1,npz
+!           write(*,*) '-----------------------------------'
+!           write(*,*) 'p, q, grad'
+!           write(*,*) p(k), q(k), grad(k)
+!           write(*,*) 'T, T_lifts', T(k), T_lifts(k)
+!           write(*,*) 'mask, tv, tvl', mask(k), T_virts(k), T_virt_lifts(k)
+!           write(*,*) 'qcrit', qcrits(k)
+!           write(*,*) '-.-.-.-.-.-.-.-.-.-.-.-.'
+!           write(*,*) T_virt_lifts(k) > T_virts(k)
+!           write(*,*) '-.-.-.-.-.-.-.-.-.-.-.-.-'
+!        enddo
+!        
   end subroutine new_adjust
 
   subroutine gradient(p,T, dlnTdlnp, dlnpsat_dlnt)

@@ -11,7 +11,7 @@
 module ts_short_char_bezier_mod
   use, intrinsic :: iso_fortran_env
   use params, only: kappa_sw, kappa_lw, grav, Fint, Finc, kappa_sw_h2o, kappa_lw_h2o, f, flw, k2_lw_h2o,&
-       k2_sw_h2o
+       k2_sw_h2o, A_s
   
   implicit none
 
@@ -67,7 +67,7 @@ module ts_short_char_bezier_mod
 contains
 
   subroutine ts_short_char_bezier(Bezier, surf, nlay, nlev, Ts, Tl, pl, pe,&
-    & net_F, mu_s, olr, fup, fdn, s_dn, AB, q)
+    & net_F, mu_s, olr, fup, fdn, s_dn, s_up, AB, q)
     implicit none
 
     !! Input variables
@@ -82,7 +82,7 @@ contains
 
     !! Output variables
     real(dp), intent(out) :: olr!, asr, net_Fs
-    real(dp), dimension(nlev), intent(out) :: fdn, s_dn, fup
+    real(dp), dimension(nlev), intent(out) :: fdn, s_dn, fup, s_up
     real(dp), dimension(nlev), intent(out) :: net_F
 
     !! Work variables
@@ -100,21 +100,31 @@ contains
     real(dp) :: asr, net_Fs, lw_a_surf, sw_a_surf, F0
 
     sw_a = 0.0; sw_g = 0.0
-    lw_a_surf = 0.0; sw_a_surf = 0.0
+    sw_a = 0.2
+    lw_a_surf = 0.0; sw_a_surf = A_s
     mu_z = mu_s
     mu_z = 0.5_dp
     F0 = Finc
     
-    tau_IRe(1) = 1.e-20
-    tau_Ve(1) = 1.e-20
+    !tau_IRe(1) = 1.e-20
+    !tau_Ve(1) = 1.e-20
+    tau_IRe(1) = (kappa_lw*(1.-q(1)) + q(1)*kappa_lw_h2o)*&
+         (flw + 2*(1.-flw)*0.5*pe(1)/pe(nlay+1))*pe(1)/grav
+    tau_Ve(1)  = (kappa_sw*(1.-q(1)) + q(1)*kappa_sw_h2o)*&
+         (f + 2*(1.-f)*0.5*pe(1)/pe(nlay+1))*pe(1)/grav
+
     do i=2,nlay+1
-       tau_Ire(i) = tau_IRe(i-1) + (kappa_lw_h2o*(flw + (1-flw)*2*(pl(i-1)/pe(nlev)))*q(i-1) + &
-!kappa_lw*(flw + 2*(1.-flw)*(pl(i-1)/pe(nlev)))*(1.-q(i-1)))*&
-            kappa_lw*(1-q(i-1)))*&
-            (pe(i) - pe(i-1))/grav
-       tau_Ve(i) = tau_Ve(i-1) + (kappa_sw_h2o*(f + 2*(1.-f)*(pl(i-1)/pe(nlev)))*q(i-1) + &
-            kappa_sw*( f + 2*(1.-f)*(pl(i-1)/pe(nlev)) )*(1.-q(i-1))) &
-            *(pe(i) - pe(i-1))/grav
+       tau_IRe(i) = tau_IRe(i-1) + (kappa_lw*(1 - q(i-1)) + kappa_lw_h2o*q(i-1))&
+            *(flw + 2*(1.-flw)*(pl(i-1)/pe(nlay+1)))*(pe(i) - pe(i-1))/grav
+       tau_Ve(i)  =  tau_Ve(i-1) + (kappa_sw*(1 - q(i-1)) + kappa_sw_h2o*q(i-1))&
+            *(f + 2*(1.-f)*(pl(i-1)/pe(nlay+1)))*(pe(i) - pe(i-1))/grav
+
+!       tau_Ire(i) = tau_IRe(i-1) + (kappa_lw_h2o*(flw + (1-flw)*2*(pl(i-1)/pe(nlev)))*q(i-1) + &
+!            kappa_lw*(1-q(i-1)))*&
+!            (pe(i) - pe(i-1))/grav
+!       tau_Ve(i) = tau_Ve(i-1) + (kappa_sw_h2o*(f + 2*(1.-f)*(pl(i-1)/pe(nlev)))*q(i-1) + &
+!            kappa_sw*( f + 2*(1.-f)*(pl(i-1)/pe(nlev)) )*(1.-q(i-1))) &
+!            *(pe(i) - pe(i-1))/grav
     enddo
 
 !    do i=2,nlay+1
@@ -186,6 +196,7 @@ contains
     fup = lw_up
     fdn = lw_down
     s_dn = sw_down
+    s_up = sw_up
         
     !! Output asr
     asr = sw_down(1) - sw_up(1)
@@ -319,7 +330,7 @@ contains
     w(1:nlay) = w_in(:)
     g(1:nlay) = g_in(:)
 
-    w(nlev) = 0.0_dp
+    w(nlev) = w_surf
     g(nlev) = 0.0_dp
 
     ! If zero albedo across all atmospheric layers then return direct beam only
@@ -336,7 +347,7 @@ contains
           cum_trans(k+1) = cum_trans(k) + (tau_Ve(k+1) - tau_Ve(k))/mu_z(k+1)
         end do
         do k = 1, nlev
-          sw_down(k) = Finc * mu_z(nlev) * exp(-cum_trans(k))
+          sw_down(k) = Finc * exp(-cum_trans(k))
         end do
       end if
 
@@ -409,8 +420,8 @@ contains
     sw_up(nlev) = sw_down(nlev) * w_surf
 
     !! Scale with the incident flux
-    sw_down(:) = sw_down(:) * mu_z(nlev) * Finc
-    sw_up(:) = sw_up(:) * mu_z(nlev) * Finc
+    sw_down(:) = sw_down(:) *  Finc
+    sw_up(:) = sw_up(:) * Finc
 
   end subroutine sw_grey_updown_adding
 

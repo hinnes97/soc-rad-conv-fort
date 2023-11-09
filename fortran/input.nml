@@ -1,12 +1,12 @@
 &control_nml
     nf = 100
     matrix_rt = .false.
-    surface = .false.
+    surface = .true.
 /
 
 &initialisation_nml
     log_top_p = 0.0
-    log_bot_p = 6.477
+    log_bot_p = 5
     bot_t = 700.0
     top_t = 150.0
     p_grid = 'log'
@@ -16,8 +16,8 @@
 
 &io_nml
     init_from_file = .false.
-    input_file = 'soc_test/output_deep.nc'
-    output_file = 'prelim_runs/init_condition.nc'
+    input_file = 'prelim_runs/init_condition.nc'
+    output_file = 'prelim_runs/shami_run.nc'
 /
 
 &param_nml
@@ -46,8 +46,8 @@
 /
 
 &radiation_nml
-    finc = 171.25
-    fint = 3.72
+    finc = 239.75
+    fint = 0.0
 /
 
 &band_grey_nml
@@ -65,8 +65,8 @@
     kappa_q = 0.007742840658352238
     kappa_lw_h2o = 2.e-2
     kappa_sw_h2o = 4.e-4
-    f = 0.2
-    flw = 0.8
+    f = 1.0
+    flw = 1.0
 /
 
 &moisture_nml

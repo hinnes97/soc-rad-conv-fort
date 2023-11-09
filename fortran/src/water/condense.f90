@@ -3,7 +3,7 @@ module condense
   use params, only : rdgas, q0, dp, nf, moisture_scheme
   use phys, only: T_TP => H2O_TriplePointT, P_TP => H2O_TriplePointP, &
        L_vap => H2O_L_vaporization_TriplePoint, Rstar, mu_v => H2O_MolecularWeight, &
-       mu_d => H2He_solar_MolecularWeight
+       mu_d => H2He_solar_MolecularWeight, cp_v => H2O_cp
   use accurate_l, only : p_sat, L_calc, log_ps_pc, pc, dlogp_dlogt
   use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
   implicit none
@@ -15,7 +15,13 @@ module condense
 
   real(dp) :: p_nought
   integer :: a,b
-  
+
+  real(dp), parameter :: cp_liquid = 4219.9 ! Specific heat capacity of liquid water at TP [J/kg]
+  real(dp), parameter :: hv_tp = 2500920.   ! Specific enthalpy of water vapour at triple point
+  real(dp), parameter :: hl_tp = 1.0000000  ! Specific enthalpy of liquid water at the triple point
+
+    real(dp), parameter :: T_low = T_tp - 20.0
+
 contains
 
   subroutine newton_iteration(f, dfdx, x1, sol, icode)
@@ -156,31 +162,66 @@ contains
     
   end subroutine rain_out
 
-  subroutine sat_vp(T, sat_p)
+!  subroutine sat_vp(T, sat_p)
+!    real(dp), intent(in) :: T
+!    real(dp), intent(out) :: sat_p
+!
+!    real(dp) :: L
+!
+!    !if (T .gt. T_tp) then
+     !  
+!    !else
+!    !  L = L_sub
+!    !endif
+!
+!       if (T .gt. 273.16) then
+!          call find_var_loglin(T, satur, sat_p)
+!          !sat_p = p_sat(T)
+!       else
+!          L = lheat(1)
+!          sat_p = p_tp*exp(-L/rvgas * (1./T - 1./T_tp) )
+!          !sat_p = satur(1)
+!          
+!       endif
+!       
+!       
+!    
+!     end subroutine sat_vp
+    subroutine sat_vp(T, sat_p)
     real(dp), intent(in) :: T
     real(dp), intent(out) :: sat_p
 
-    real(dp) :: L
+    real(dp) :: L0, log_p_p0, f_ice, sat_p_l, sat_p_i
 
-!    if (T .gt. T_tp) then
-       
-!    else
-!      L = L_sub
-!    endif
-
-       if (T .gt. 273.16) then
-          call find_var_loglin(T, satur, sat_p)
-          !sat_p = p_sat(T)
-       else
-          L = lheat(1)
-          sat_p = p_tp*exp(-L/rvgas * (1./T - 1./T_tp) )
-          !sat_p = satur(1)
-          
-       endif
-       
-       
+    call get_f_ice(T, f_ice)
     
+    ! Over vapour
+    L0 = hv_tp - hl_tp
+    log_p_p0 = (1./T- 1./T_TP)*((cp_v - cp_liquid)*T_TP - L0)/rvgas + (cp_v-cp_liquid)/rvgas*log(T/T_TP)
+    sat_p_l = exp(log_p_p0)*P_TP
+
+    ! Over ice
+    L0 = L_sub
+    sat_p_i = p_tp*exp(-L0/rvgas * (1./T - 1./T_tp) )
+
+    
+    sat_p = sat_p_i*f_ice + sat_p_l*(1-f_ice)
+
   end subroutine sat_vp
+
+  subroutine get_f_ice(T, f_ice)
+    real(dp), intent(in) :: T
+    real(dp), intent(out) :: f_ice
+
+    if (T .lt. T_low) then
+       f_ice = 1.0
+    else if (T .gt. T_low .and. T .lt. T_tp) then
+       f_ice = (T_tp - T)/(T_tp - T_low)
+    else
+       f_ice = 0.0
+    endif
+  end subroutine get_f_ice
+       
 
   subroutine cold_trap(q, ktrop, p, T)
     real(dp), intent(inout) :: q(:), T(:)

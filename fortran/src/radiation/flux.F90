@@ -76,8 +76,8 @@ contains
 !write(*,*) 'sc_split', net_F
 
     case('short_char_elsie')
-       call ts_short_char_Bezier(.true., .false., nf, ne, Ts, Tf, pf, pe, &
-            net_F, mu_s, olr, fup, fdn, s_dn, 0.0_dp, q)
+       call ts_short_char_Bezier(.true., surface, nf, ne, Ts, Tf, pf, pe, &
+            net_F, mu_s, olr, fup, fdn, s_dn, s_up, 0.0_dp, q)
     case('toon')
        if ((moist_rad .and. surface)) then
           call toon_driver(Te, pe, net_F, olr, s_dn, fdn, fup, q, Ts)
