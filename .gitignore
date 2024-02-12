@@ -28,7 +28,7 @@ __pycache__
 spectral_files
 
 # Ignore socrates source code
-fortran/src/socrates/src/
+fortran/src/socrates/*src*/
 
 # Ignore slurm error output
 *.err
