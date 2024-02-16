@@ -29,6 +29,7 @@ spectral_files
 
 # Ignore socrates source code
 fortran/src/socrates/*src*/
+fortran/src/socrates/interface_old
 
 # Ignore slurm error output
 *.err
