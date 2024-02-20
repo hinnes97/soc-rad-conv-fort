@@ -43,6 +43,8 @@ add_subdirectory(${SRC}/socrates ${OBJ})
 file(GLOB_RECURSE SRC_FILES
   "${SRC}/*.f90"
   "${SRC}/*.F90"
+  "${SRC}/*.f95"
+  "${SRC}/*.F95"
  )
 
  # Remove socrates to avoid double-counting
@@ -62,7 +64,8 @@ foreach (TMP_PATH ${SRC_FILES})
         list (REMOVE_ITEM SRC_FILES ${TMP_PATH})
     endif ()
 endforeach(TMP_PATH)
-
+string(REPLACE ";" "\n" TEST "${SRC_FILES}")
+message(${TEST})
 # Add executable
 add_executable(${EXE} ${SRC_FILES})
 target_compile_definitions(${EXE} PUBLIC SOC)

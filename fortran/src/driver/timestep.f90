@@ -1,7 +1,7 @@
 module timestep
   use params, only: dp, Nt, nf, ne, const, Finc, Fint, q0, surface, A_s, sb, surf_const, &
        moisture_scheme, sb, grav, cpair, del_time, accelerate, cp_s, rho_s, rdgas, &
-       depth, U, C_d, conv_switch, sensible_heat
+       depth, U, C_d, conv_switch, sensible_heat, nqr
   use flux_mod, only: get_fluxes
   use utils, only: linear_log_interp, bezier_interp
   use convection, only: dry_adjust
@@ -36,7 +36,7 @@ contains
     !====================================================================================
     
     real(dp), dimension(:), intent(inout) :: Tf  ! Layer temperatures
-    real(dp), dimension(:), intent(inout) :: q   ! Specific humidity
+    real(dp), dimension(:,:), intent(inout) :: q   ! Specific humidity
     
     real(dp), intent(inout) :: Ts ! Surface temperature
 
@@ -168,7 +168,7 @@ contains
     
     real(dp), dimension(:), intent(inout) :: Tf  ! Layer temperatures
     real(dp), dimension(:), intent(inout) :: Te  ! Edge of layer temperature
-    real(dp), dimension(:), intent(inout) :: q   ! Specific humidity
+    real(dp), dimension(:,:), intent(inout) :: q   ! Specific humidity
     
     real(dp), intent(inout) :: Ts ! Surface temperature
     real(dp) :: sens        ! Sensible heat flux at surface
@@ -642,7 +642,7 @@ contains
     real(dp), intent(in) :: Ts ! Surface temperature
 
     real(dp), intent(in) :: Tf(nf)
-    real(dp), intent(in) :: q(nf)
+    real(dp), intent(in) :: q(nf,nqr)
     real(dp), intent(in) :: pf(nf)
     
     logical, intent(in) :: dry_mask(nf)
@@ -666,7 +666,7 @@ contains
     write(*,'(4A17)') '[Pa]', '[K]', 'Humidity', 'Mask'
     write(*,*) '------------------------------------------------------------------------------------'
     do i = 1,nf
-       write(*,'(1PE17.3, 0PF17.3, 1PE17.3, L17)') pf(i), Tf(i), q(i), dry_mask(i)
+       write(*,'(1PE17.3, 0PF17.3, 1PE17.3, L17)') pf(i), Tf(i), q(i,1), dry_mask(i)
     enddo
     write(*,*) '------------------------------------------------------------------------------------'
     write(*,'(2x,A,F10.3)') 'Surface Temperature [K]:', Ts 

@@ -35,6 +35,16 @@ module params
   logical :: matrix_rt=.false.
   ! Whether to include a surface or not
   logical :: surface = .false.
+  ! Number of species radiatively active
+  integer :: nqr
+! Number of species thermodynamically active
+  integer :: nqt
+  ! Socrates indices of species
+  character(len=100) :: soc_index_file
+  ! Thermodynamic input file
+  character(len=100) :: therm_index_file
+! Abundances file
+  character (len=100) :: abundance_file
   
   ! -----------------------------------------------------------------------------
   !                           INITIALISATION
@@ -173,8 +183,16 @@ module params
   real(dp) :: U = 10.! Pierrehumbert 2011 value
   ! Whether to do turbulent heat transfer
   logical :: sensible_heat
+
+  ! -----------------------------------------------------------------------------
+  !                           SUPERCRIT
+  !------------------------------------------------------------------------------
+
+! Pressure below which ocean is supercritical
+  real(dp) :: p_sc
+  character(len=100) :: aqua_path
   
-  namelist /control_nml/ nf, matrix_rt, surface
+  namelist /control_nml/ nf, matrix_rt, surface, soc_index_file, nqr, nqt, therm_index_file, abundance_file
   namelist /initialisation_nml/ log_top_p, log_bot_p, bot_t, top_t, p_grid, frac
   namelist /io_nml/ init_from_file, input_file, output_file
   namelist /param_nml/ rdgas, grav, cpair, Rcp
@@ -186,7 +204,7 @@ module params
   namelist /semi_grey_nml/ kappa_lw, kappa_sw, moist_rad, kappa_q, semi_grey_scheme
   namelist /moisture_nml/ moisture_scheme, q0
   namelist /surface_nml/ cp_s, A_s, surf_const, C_d, depth, U, rho_s, sensible_heat
-  
+  namelist /supercrit_nml/ p_sc, aqua_path
   
 contains
 
@@ -276,6 +294,10 @@ contains
        rewind(f_unit)
        call check_error(ios, filename, "surface_nml")
 
+       ! Supercrit
+       read (f_unit, supercrit_nml, iostat=ios)
+       rewind(f_unit)
+       call check_error(ios, filename, "supercrit_nml")
        close(f_unit)
     end if
 
@@ -286,16 +308,18 @@ contains
   end subroutine read_constants
 
   subroutine allocate_arrays(Tf, pf, pe, Te, q)
-    real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe,  Te,q
+    real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe,  Te
+    real(dp), dimension(:,:), allocatable, intent(inout) :: q
     
-    allocate(Tf(nf), pf(nf), pe(ne),  Te(ne), q(nf))
+    allocate(Tf(nf), pf(nf), pe(ne),  Te(ne), q(nf,nqr))
     
   end subroutine allocate_arrays
 
-  subroutine deallocate_arrays(Tf, pf, pe,Te)
+  subroutine deallocate_arrays(Tf, pf, pe,Te, q)
     real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe,&
          & Te
-    deallocate(Tf,pf,pe,Te)
+    real(dp), allocatable, intent(inout) :: q(:,:)
+    deallocate(Tf,pf,pe,Te, q)
     
   end subroutine deallocate_arrays
 

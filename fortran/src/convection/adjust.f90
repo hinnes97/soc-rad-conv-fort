@@ -2,14 +2,11 @@
 
 module adjust_mod
   
-  use phys, only : T_TP => H2O_TriplePointT, P_TP => H2O_TriplePointP, L_sub => H2O_L_sublimation, &
-       L_vap => H2O_L_vaporization_TriplePoint, CP_v => H2O_cp, CP_d => H2He_solar_cp, &
-       mu_d => H2He_solar_MolecularWeight, mu_v => H2O_MolecularWeight, Rstar
-
-  use params, only : dp, Finc, inhibited, accelerate
+  use phys, only : H2O, H2He_solar, Rstar
+  use params, only : dp, Finc, inhibited, accelerate, nqr
   use condense, only: q_sat, cold_trap, dew_point_T
   use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
-  
+  use atmosphere, only : mmw_dry, cp_dry
   implicit none
 
 contains
@@ -51,8 +48,8 @@ contains
     !==========================================================================
     ! Mixed input/output
     !==========================================================================
-    real(dp), intent(inout), dimension(:) :: T,q ! Temperature and specific humid.
-
+    real(dp), intent(inout), dimension(:) :: T
+    real(dp), intent(inout) :: q(:,:)
     !==========================================================================
     ! Local variables
     !==========================================================================
@@ -62,7 +59,7 @@ contains
     integer, parameter       :: N_iter = 1000 ! Number of up-down iterations
     
     real(dp) :: pfact,  qcrit,temp
-    real(dp) :: qsats(size(p)), qcrits(size(p))
+    real(dp) :: qsats(size(p),nqr), qcrits(size(p))
 
     real(dp) :: grad_check(size(p)), grad_true(size(p))
 
@@ -95,8 +92,8 @@ contains
        call q_sat(p, T, qsats)
        
        do k=npz-1,max(ktrop, 1),-1
-          call gradient(p(k+1),T(k+1),grad(k), temp)
-          qcrit = 1./(1._dp - mu_d/mu_v) /temp
+          call gradient(p(k+1),T(k+1),cp_dry(k), mmw_dry(k), grad(k), temp)
+          qcrit = 1./(1._dp - H2He_solar%mmw/H2O%mmw) /temp
           
           qcrits(k) = qcrit
           if (n.eq. 1 .and. tstep .gt. 1000 .and. accelerate) then
@@ -105,7 +102,7 @@ contains
              f = 1.
           endif
              
-          if (qsats(k+1) .gt. 1) then
+          if (qsats(k+1,1) .gt. 1) then
              call dew_point_T(p(k+1), T(k+1))
 
              if ((Finc/olr)**(0.01_dp) .lt. 1) then
@@ -125,13 +122,13 @@ contains
               
               if (inhibited) then
                  ! Do moisture inhibition
-                 condition = (  (T(k) - T(k+1)*pfact*(1 + delta))*(qcrit - q(k+1)) .lt. 0)
+                 condition = (  (T(k) - T(k+1)*pfact*(1 + delta))*(qcrit - q(k+1,1)) .lt. 0)
               else
                  ! Regular criterion
                  condition = ( (T(k) - T(k+1)*pfact*(1+delta)) .lt. 0 )
               endif
               
-              if (condition .and. q(k+1) .gt. qsats(k+1) - 1.e-10) then
+              if (condition .and. q(k+1,1) .gt. qsats(k+1,1) - 1.e-10) then
                  T(k+1) = (T(k)*delp(k) + T(k+1)*delp(k+1))/(delp(k+1) + pfact*delp(k))
                  T(k+1) = f*T(k+1)
                  T(k) = f*T(k+1)*pfact
@@ -157,7 +154,7 @@ contains
         
   end subroutine new_adjust
 
-  subroutine gradient(p,T, dlnTdlnp, dlnpsat_dlnt)
+  subroutine gradient(p,T, cpd, mmw_d,dlnTdlnp, dlnpsat_dlnt)
     !==========================================================================
     ! Description
     !==========================================================================
@@ -168,7 +165,7 @@ contains
     ! Input variables
     !==========================================================================
     real(dp), intent(in) :: p, T !Pressure and temperature
-
+    real(dp), intent(in) :: cpd, mmw_d
     !==========================================================================
     ! Output variables
     !==========================================================================
@@ -191,9 +188,9 @@ contains
       call find_var_lin(T, lheat, L)
     endif
     !L = 2.5e6
-    call sat(p, T, qsat, rsat, psat)
+    call sat(p, T, cpd, mmw_d,qsat, rsat, psat)
     
-    num   = 1 + (L*mu_d/Rstar/T)*rsat
+    num   = 1 + (L*mmw_d/Rstar/T)*rsat
     !denom = 1 + ((cp_v/cp_d) + ((L*mu_v/Rstar/T) - 1)*(L/cp_d/T) )*rsat
     
     ! Changed for more accurate version
@@ -201,7 +198,7 @@ contains
        call find_var_lin(T, phase_grad,t2)
     else
        L = lheat(1)
-       t2 = L*mu_v/Rstar/T
+       t2 = L*H2O%mmw/Rstar/T
     endif
     
 
@@ -209,16 +206,16 @@ contains
        dlnpsat_dlnt = t2
     endif
     
-    denom = 1 + ((cp_v/cp_d) + t2/cp_d*(L/T - Rstar/mu_v)  )*rsat
+    denom = 1 + ((H2O%cp/cpd) + t2/cpd*(L/T - Rstar/H2O%mmw)  )*rsat
 
-    temp = Rstar/mu_d/cp_d * num/denom
+    temp = Rstar/mmw_d/cpd * num/denom
     
-    dlnTdlnp = 1. / ((psat/p)*L*mu_v/Rstar/T + (p - psat)/p/temp)
+    dlnTdlnp = 1. / ((psat/p)*L*H2O%mmw/Rstar/T + (p - psat)/p/temp)
     
     
   end subroutine gradient
   
-  subroutine sat(p,T, qsat, rsat, psat)
+  subroutine sat(p,T, cpd,mmw_d,qsat, rsat, psat)
     !==========================================================================
     ! Description
     !==========================================================================
@@ -233,7 +230,7 @@ contains
     !==========================================================================
     
     real(dp), intent(in)  :: p, T ! Pressure, temperature
-
+    real(dp), intent(in) :: mmw_d, cpd
     !==========================================================================
     ! Output variables
     !==========================================================================
@@ -249,14 +246,14 @@ contains
     ! Main body
     !==========================================================================
     
-    eps = mu_v/mu_d
+    eps = H2O%mmw/mmw_d
 
 
     if (T .gt. 273.16) then
        call find_var_loglin(T, satur, psat_temp)
     else
        L = lheat(1)
-       psat_temp = P_TP * exp(-L/Rstar*mu_v * (1./T - 1./T_TP))
+       psat_temp = H2O%TP_P * exp(-L/Rstar*H2O%mmw * (1./T - 1./H2O%tp_t))
     endif
     
     rsat_temp = psat_temp / (p-psat_temp) * eps

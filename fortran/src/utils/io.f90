@@ -19,14 +19,14 @@ contains
     
   end subroutine handle_err
 
-  subroutine file_setup(path, nf, ne, ncid)
+  subroutine file_setup(path, nf, ne, nqr, ncid)
     character (len=*), intent(in) :: path
     integer, intent(in) :: nf
-    integer, intent(in) :: ne
+    integer, intent(in) :: ne, nqr
     integer, intent(out) :: ncid
 
     integer :: status
-    integer :: pf_dim_id, pe_dim_id
+    integer :: pf_dim_id, pe_dim_id, nqr_dim_id
     integer :: tf_id, pf_id, pe_id, olr_id, tau_ir_inf_id, tau_v_inf_id, te_id, q_id
     integer :: finc_id, fint_id, fdn_id, fup_id, sdn_id, Ts_id, sup_id, dm_id
 
@@ -39,7 +39,7 @@ contains
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_def_dim(ncid, "pedge", ne, pe_dim_id)
     if (status /= nf90_noerr) call handle_err(status)
-
+    status = nf90_def_dim(ncid, "nqr", nqr, nqr_dim_id)
     ! Create variables
     status = nf90_def_var(ncid, "Tf", nf90_double, pf_dim_id, tf_id)
     if (status /= nf90_noerr) call handle_err(status)
@@ -59,7 +59,7 @@ contains
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_def_var(ncid, "Fint", nf90_double, fint_id)
     if (status /= nf90_noerr) call handle_err(status)
-    status = nf90_def_var(ncid, "q", nf90_double,pf_dim_id, q_id)
+    status = nf90_def_var(ncid, "q", nf90_double,(/pf_dim_id,nqr_dim_id/), q_id)
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_def_var(ncid, "fdn", nf90_double,pe_dim_id, fdn_id)
     if (status /= nf90_noerr) call handle_err(status)
@@ -244,7 +244,8 @@ contains
 
   subroutine read_initial_data(file_name, Tf, Te, q, pf,pe, Ts)
     character(*), intent(in) :: file_name
-    real(dp), dimension(:), intent(out) :: Tf, Te, q, pf, pe
+    real(dp), dimension(:), intent(out) :: Tf, Te, pf, pe
+    real(dp), dimension(:,:), intent(out) :: q
     real(dp), optional, intent(out) :: Ts
     integer :: ncid, status, id_tf, id_te, id_q,id_ts, k, id_pf, id_pe
 

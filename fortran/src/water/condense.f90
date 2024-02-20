@@ -1,17 +1,16 @@
 module condense
 
-  use params, only : rdgas, q0, dp, nf, moisture_scheme
-  use phys, only: T_TP => H2O_TriplePointT, P_TP => H2O_TriplePointP, &
-       L_vap => H2O_L_vaporization_TriplePoint, Rstar, mu_v => H2O_MolecularWeight, &
-       mu_d => H2He_solar_MolecularWeight
+  use params, only : rdgas, q0, dp, nf, moisture_scheme, nqr
+  use phys, only: H2O, Rstar
   use accurate_l, only : p_sat, L_calc, log_ps_pc, pc, dlogp_dlogt
   use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
+  use atmosphere, only: mmw_dry, q_orig
   implicit none
 
   
   real(dp) :: rvgas = 461.52
   real(dp) :: L_sub = 2.84e6 ! Defined at triple point
-  real(dp) :: eps = mu_v/mu_d ! Ratio of water to hydrogen molecular weight
+  !real(dp) :: eps = mu_v/mu_d ! Ratio of water to hydrogen molecular weight
 
   real(dp) :: p_nought
   integer :: a,b
@@ -98,10 +97,10 @@ contains
     real(dp) :: x1
 
     if (pf .lt. 611.655) then
-       Tf = T_TP/(1 - Rstar*T_TP/mu_v/L_vap*log(pf/P_TP))
+       Tf = H2O%tp_t/(1 - Rstar*H2O%tp_t/H2O%mmw/H2O%L_vap_tp*log(pf/H2O%tp_p))
     else
        
-       x1 = T_TP/(1 - Rstar*T_TP/mu_v/L_vap*log(pf/P_TP))
+       x1 = H2O%tp_t/(1 - Rstar*H2O%tp_t/H2O%mmw/H2O%L_vap_tp*log(pf/H2O%tp_p))
        p_nought = pf
        
        call newton_iteration(find_root, dlogp_dlogt, x1, Tf, info)
@@ -116,16 +115,30 @@ contains
 
   subroutine q_sat(p, T, q)
     real(dp), intent(in) :: p(:), T(:)
-    real(dp), intent(out) :: q(:)
+    real(dp), intent(out) :: q(:,:)
 
-    integer :: k
-    real(dp) :: psat
+    integer :: k,n
+    real(dp) :: psat, q_old,eps
 
-    do k=1,size(q)
+    do k=1,size(p)
 
        call sat_vp(T(k), psat)
        !psat = p_sat(T(k))
-       q(k) = eps*psat/p(k)/(1 + (eps - 1)*psat/p(k))
+!q(k) = eps*psat/p(k)/(1 + (eps - 1)*psat/p(k))
+
+       if (psat .gt. p(k) .or. T(k)>H2O%crit_T) then
+          q(k,1) = 1.e20
+       else
+! 1 Always water
+          eps = H2O%mmw/mmw_dry(k)
+          
+          q(k,1) = eps*(psat/p(k))/(1 + (eps-1)*(psat/p(k)))
+! Update dry species
+          do n=2,nqr
+             q(k,n) = (1. - q(k,1))/(1 - q_orig(k,1)) * q_orig(k,n)
+          enddo
+          
+       endif
     enddo
        
   end subroutine q_sat
@@ -173,7 +186,7 @@ contains
           !sat_p = p_sat(T)
        else
           L = lheat(1)
-          sat_p = p_tp*exp(-L/rvgas * (1./T - 1./T_tp) )
+          sat_p = H2O%tp_p*exp(-L/rvgas * (1./T - 1./H2O%tp_t) )
           !sat_p = satur(1)
           
        endif
@@ -183,7 +196,7 @@ contains
   end subroutine sat_vp
 
   subroutine cold_trap(q, ktrop, p, T)
-    real(dp), intent(inout) :: q(:), T(:)
+    real(dp), intent(inout) :: q(:,:), T(:)
     real(dp), intent(in) :: p(:)
     integer, intent(inout) :: ktrop
 
@@ -198,31 +211,31 @@ contains
 
        if (moisture_scheme=='surface') then
           
-          if (q(j) .gt. 1) then
-             q(j) = 1.
+          if (q(j,1) .gt. 1) then
+             q(j,1) = 1.
              call dew_point_T(p(j), T(j))
              cycle
           endif
 
 
        
-          if (q(j) .lt. q_min) then
-             q_min = q(j)
+          if (q(j,1) .lt. q_min) then
+             q_min = q(j,1)
        
           else if (p(j) .lt. 9.*p(nf)/10.) then
              ! Extra condition stops cold trap being too low down
              ! Liable to crashing if set too near the surface
-             q(1:j) = q_min
+             q(1:j,1) = q_min
              ktrop = j+1
              exit
           endif
 
        else if (moisture_scheme=='deep') then
-          if (q(j) .lt. q_min) then
-             q_min = q(j)
+          if (q(j,1) .lt. q_min) then
+             q_min = q(j,1)
 
-          else if (p(j) .lt. 9*p(nf)/10. .and. q(j) .lt. q0) then
-             q(1:j) = q_min
+          else if (p(j) .lt. 9*p(nf)/10. .and. q(j,1) .lt. q0) then
+             q(1:j,1) = q_min
              ktrop = j+1
           endif
           
@@ -270,8 +283,8 @@ contains
     !==========================================================================
     ! Mixed input/output
     !==========================================================================
-    real(dp), intent(inout), dimension(:) :: T,q ! Temperature and specific humid.
-    
+    real(dp), intent(inout), dimension(:) :: T! Temperature 
+    real(dp), intent(inout) :: q(:,:)
 
     integer :: k, npz    
     !==========================================================================
@@ -285,12 +298,12 @@ contains
     
     ! Correct if above deep value
     if (moisture_scheme =='deep') then
-       npz = size(q)
+       npz = size(q,1)
        do k=1,npz
-          q(k) = min(q(k), q0)
+          q(k,1) = min(q(k,1), q0)
        enddo
        ! Don't do moist convection if entire atmosphere is at q0
-       if (q(ktrop) .gt. q0) ktrop = npz
+       if (q(ktrop,1) .gt. q0) ktrop = npz
     endif
 
    end subroutine set_q

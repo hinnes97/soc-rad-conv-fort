@@ -5,7 +5,8 @@ program main
   use timestep
   use condense, only: dew_point_T
   use init_pt_mod, only: init_pt
-
+  use atmosphere, only : read_abundances, init_atmos
+  
 #ifdef SOC
   use socrates_interface_mod, only : socrates_init
 #elif defined PICKET
@@ -20,16 +21,16 @@ program main
   real(dp), dimension(:), allocatable :: Tf, pf ! Temp and pressure arrays
   real(dp), dimension(:), allocatable :: Te, pe     ! Edge pressure array
 
-  real(dp), dimension(:), allocatable :: q
+  real(dp), dimension(:,:), allocatable :: q
   real(dp) ::  start, end, Ts
 
   integer :: ncid
 
 
-  ! Initialise parameters and allocate arrays
+! Initialise parameters and allocate arrays
   call read_constants()
   call allocate_arrays(Tf, pf, pe, Te, q)
-
+  call init_atmos(pf, q)
 #ifdef SOC
   call socrates_init()
 #elif defined PICKET
@@ -39,7 +40,7 @@ program main
 #endif
 
   !Initialise output file
-  call file_setup(output_file, nf, ne, ncid)
+  call file_setup(output_file, nf, ne, nqr, ncid)
 
   if (init_from_file .eqv. .true.) then
      ! Read data from output file
@@ -50,12 +51,17 @@ program main
      call init_pt(pf, pe, Tf, Te)
      Ts = Te(ne)
   endif
+
+! Read abundances from file
+! Initialise atmosphere
+  call init_atmos(pf, q)
+  call read_abundances(pf, q)
   
   ! Do timestepping
   call cpu_time(start)
   call step(Tf, pf, pe, output_file ,q, Ts)
   call cpu_time(end)
   
-  call deallocate_arrays(Tf, pf, pe,Te)
+  call deallocate_arrays(Tf, pf, pe,Te, q)
   
 end program main

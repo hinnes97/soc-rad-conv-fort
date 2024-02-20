@@ -26,7 +26,7 @@ contains
     real(dp), dimension(:), intent(in) :: Te, pe           ! pressure [pa] at levels
     real(dp), intent(in) :: Finc, mu_s                        ! Incident flux [W m-2] and cosine zenith angle
     real(dp), intent(in) :: Fint                              ! Internal flux [W m-2]
-    real(dp), intent(in) :: q(:)
+    real(dp), intent(in) :: q(:,:)
     real(dp), intent(in) :: Ts                            ! Surface temperature
     
     !! Output variables
@@ -69,8 +69,8 @@ contains
     !h2_in = h2_in*0.9_dp
 
     ch4_in = 0.0_dp
-    q_in = q
-    h2_in = 1-q-ch4_in
+    q_in = q(:,1)
+    h2_in = 1-q(:,1)-ch4_in
     
     he_in =h2_in*0.25188_dp
     h2_in =h2_in*0.74812_dp

@@ -1,6 +1,7 @@
 module init_pt_mod
-  use params, only: log_bot_p, log_top_p, p_grid, frac, bot_t, top_t, dp
-  use utils, only: logspace
+  use params, only: log_bot_p, log_top_p, p_grid, frac, bot_t, top_t, dp, nqt
+  use utils, only: logspace, linear_log_interp
+  use atmosphere, only : th_gases, mmw_dry, cp_dry
   implicit none
   
 contains
@@ -47,5 +48,5 @@ contains
         Te(i) = max(Te(i), top_t)
      enddo
    end subroutine init_pt
-   
+
 end module init_pt_mod
