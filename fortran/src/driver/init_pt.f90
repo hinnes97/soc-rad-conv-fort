@@ -1,7 +1,7 @@
 module init_pt_mod
-  use params, only: log_bot_p, log_top_p, p_grid, frac, bot_t, top_t, dp, nqt
+  use params, only: log_bot_p, log_top_p, p_grid, frac, bot_t, top_t, dp
   use utils, only: logspace, linear_log_interp
-  use atmosphere, only : th_gases, mmw_dry, cp_dry
+  use atmosphere, only : th_gases, mmw_dry, cp_dry, nqt
   implicit none
   
 contains
@@ -37,8 +37,9 @@ contains
 
      do i=1,npz+1
         Te(i) = bot_t*(pe(i)/pe(npz+1))**(2./7.)
+        writE(*,*) Te(i)
      enddo
-
+     
      ! Limit minimum temperature of atmosphere
      do i=1,npz
         Tf(i) = max(Tf(i), top_t)

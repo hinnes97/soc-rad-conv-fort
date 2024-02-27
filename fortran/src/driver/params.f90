@@ -35,14 +35,8 @@ module params
   logical :: matrix_rt=.false.
   ! Whether to include a surface or not
   logical :: surface = .false.
-  ! Number of species radiatively active
-  integer :: nqr
-! Number of species thermodynamically active
-  integer :: nqt
   ! Socrates indices of species
   character(len=100) :: soc_index_file
-  ! Thermodynamic input file
-  character(len=100) :: therm_index_file
 ! Abundances file
   character (len=100) :: abundance_file
   
@@ -192,7 +186,7 @@ module params
   real(dp) :: p_sc
   character(len=100) :: aqua_path
   
-  namelist /control_nml/ nf, matrix_rt, surface, soc_index_file, nqr, nqt, therm_index_file, abundance_file
+  namelist /control_nml/ nf, matrix_rt, surface, soc_index_file, abundance_file
   namelist /initialisation_nml/ log_top_p, log_bot_p, bot_t, top_t, p_grid, frac
   namelist /io_nml/ init_from_file, input_file, output_file
   namelist /param_nml/ rdgas, grav, cpair, Rcp
@@ -307,11 +301,10 @@ contains
     
   end subroutine read_constants
 
-  subroutine allocate_arrays(Tf, pf, pe, Te, q)
+  subroutine allocate_arrays(Tf, pf, pe, Te)
     real(dp), dimension(:), allocatable, intent(inout) :: Tf, pf, pe,  Te
-    real(dp), dimension(:,:), allocatable, intent(inout) :: q
     
-    allocate(Tf(nf), pf(nf), pe(ne),  Te(ne), q(nf,nqr))
+    allocate(Tf(nf), pf(nf), pe(ne),  Te(ne))
     
   end subroutine allocate_arrays
 

@@ -1,6 +1,6 @@
 module atmosphere
 
-  use params, only: soc_index_file, therm_index_file, dp, p_sc, abundance_file
+  use params, only: soc_index_file, dp, p_sc, abundance_file
   use utils, only: linear_log_interp
   use phys
   implicit none
@@ -18,7 +18,7 @@ contains
   subroutine init_atmos(p, q)
     !real(dp), intent(in), allocatable, dimension(:) :: mmw, cp, Rgas
     real(dp), intent(in) :: p(:)
-    real(dp), intent(inout):: q(:,:)
+    real(dp), intent(inout), allocatable :: q(:,:)
     
     integer :: f_unit, ierr, i
 
@@ -29,28 +29,14 @@ contains
        stop
     endif
 
-    read(f_unit, *) nqr
-    allocate(soc_indices(nqr), rad_gases(nqr))
+    read(f_unit, *) nqr, nqt
+    allocate(soc_indices(nqr), rad_gases(nqr), th_indices(nqt), th_gases(nqt))
     
-    do i=1,nqr
-       read(f_unit,*) soc_indices(i)
-    enddo
+    read(f_unit,*) th_indices(1:nqt)
+    
     close(f_unit)
-
-    ! Open file
-    open(newunit=f_unit, iostat=ierr, action='read', file=therm_index_file)
-    if (ierr .ne. 0) then
-       write(*,*) 'Could not open ', Therm_index_file
-       stop
-    endif
-
-    read(f_unit, *) nqt
-    allocate(th_indices(nqt), th_gases(nqt))
-
-    do i=1,nqt
-       read(f_unit,*) soc_indices(i)
-    enddo
-    close(f_unit)
+    soc_indices(1:nqr) = soc_indices(1:nqr)
+    
 
     do i=1,nqt
        select case(th_indices(i))
@@ -72,7 +58,8 @@ contains
           th_gases(i) = He
        case(35)
           th_gases(i) = HCN
-
+       case(46)
+          th_gases(i) = C2H6
        case default
           write(*,*) 'ERROR: incorrect species identifier'
           stop
@@ -84,43 +71,47 @@ contains
   
    subroutine read_abundances(p, q)
      real(dp), intent(in) :: p(:)
-     real(dp), intent(out) :: q(:,:)
+     real(dp), intent(out),allocatable :: q(:,:)
      
-     integer :: k, nqr,npz,ndat, io, unit, rand,n, i
+     integer :: k, nqr,npz,ndat, io, unit, rand,n, i, test
 
      real(dp), allocatable :: qdat(:,:), pdat(:)
+     character(len=100) :: formt
      
-     nqr = size(q, 2)
+     !nqt = size(q, 2)
      npz = size(p)
-
-     allocate(mmw_dry(npz), cp_dry(npz), q_orig(npz,nqr))
+     allocate(mmw_dry(npz), cp_dry(npz), q_orig(npz,nqt), q(npz,nqt))
      open(newunit=unit, file=abundance_file, iostat=io)
 
-     ndat = 0
-     do while (io .eq. 0)
-        read(unit,*, iostat=io)
-        ndat = ndat+1
-     enddo
+     read(unit,*) ndat, test
+! Check that nqt == test
+     write(*,*) ndat, test, nqt
+     if (test .ne. nqt) then
+        write(*,*) 'WARNING, abundance data length .ne. nqt'
+        stop
+     endif
 
-     allocate(qdat(ndat,nqr), pdat(ndat))
-     rewind(unit)
+     allocate(qdat(ndat,nqt), pdat(ndat))
+
      do k=1,ndat
-        read(unit,*) rand,pdat(k), qdat(k,:)
+        read(unit,*) pdat(k), qdat(k,:)
      enddo
 
      close(unit)
+
      
 ! Now interpolate all the qs in log space
      do k=1,npz
         if (p(k) .gt. p_sc) then
            q(k,1) = 1.0_dp
-           q(k,2:nqr) = 0.0_dp
+           q(k,2:nqt) = 0.0_dp
         else
            i = minloc(abs(p(k) - pdat), dim=1)
            if (p(k) .lt. pdat(i) ) i=i-1
            i=max(min(i,ndat-1),1)
-           do n=1,nqr
-! Find nearest index in data
+           do n=1,nqt
+              ! Find nearest index in data
+              if (n .eq. 1) write(*,*), k, p(k), pdat(i), pdat(i+1)
               call linear_log_interp(p(k), pdat(i), pdat(i+1), qdat(i,n), qdat(i+1,n), q(k,n))
            enddo
         endif
@@ -133,7 +124,7 @@ contains
         call get_dry_mmw(q(k,1:nqt), mmw_dry(k), th_gases)
         call get_dry_cp(q(k,1:nqt), cp_dry(k), th_gases)
      enddo
-     
+
    end subroutine read_abundances
 
   subroutine get_dry_mmw(q, mmw, gases)

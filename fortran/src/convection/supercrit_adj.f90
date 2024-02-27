@@ -24,7 +24,8 @@ contains
     real(dp), intent(inout), dimension(:,:) :: q
     integer,  intent(inout)               :: ktrop      ! Index of tropopause (~cold trap)
     logical,  intent(out),   dimension(:) :: mask       ! Mask of whether convection occurring
-    real(dp), intent(in) :: olr, tstep
+    real(dp), intent(in) :: olr
+    integer, intent(in) :: tstep
     !=========================================================================
     ! Local variables
     !=========================================================================

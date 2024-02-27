@@ -29,8 +29,8 @@ program main
 
 ! Initialise parameters and allocate arrays
   call read_constants()
-  call allocate_arrays(Tf, pf, pe, Te, q)
-  call init_atmos(pf, q)
+  call allocate_arrays(Tf, pf, pe, Te)
+
 #ifdef SOC
   call socrates_init()
 #elif defined PICKET
@@ -55,7 +55,7 @@ program main
 ! Read abundances from file
 ! Initialise atmosphere
   call init_atmos(pf, q)
-  call read_abundances(pf, q)
+  !call read_abundances(pf, q)
   
   ! Do timestepping
   call cpu_time(start)

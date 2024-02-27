@@ -1,10 +1,10 @@
 module condense
 
-  use params, only : rdgas, q0, dp, nf, moisture_scheme, nqr
+  use params, only : rdgas, q0, dp, nf, moisture_scheme
   use phys, only: H2O, Rstar
   use accurate_l, only : p_sat, L_calc, log_ps_pc, pc, dlogp_dlogt
   use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
-  use atmosphere, only: mmw_dry, q_orig
+  use atmosphere, only: mmw_dry, q_orig, nqt, nqr
   implicit none
 
   
@@ -134,7 +134,7 @@ contains
           
           q(k,1) = eps*(psat/p(k))/(1 + (eps-1)*(psat/p(k)))
 ! Update dry species
-          do n=2,nqr
+          do n=2,nqt
              q(k,n) = (1. - q(k,1))/(1 - q_orig(k,1)) * q_orig(k,n)
           enddo
           
@@ -213,6 +213,7 @@ contains
           
           if (q(j,1) .gt. 1) then
              q(j,1) = 1.
+             write(*,*) 'cold trap dew point T'
              call dew_point_T(p(j), T(j))
              cycle
           endif

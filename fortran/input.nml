@@ -1,14 +1,16 @@
 &control_nml
     nf = 100
     matrix_rt = .false.
-    surface = .true.
+    surface = .false.
+    soc_index_file='abundances/K2_18b_2500bar_conv_socindex'
+    abundance_file='abundances/K2_18b_2500bar_conv_abund_ordered.csv'
 /
 
 &initialisation_nml
     log_top_p = 0.0
-    log_bot_p = 5.0
-    bot_t = 250.0
-    top_t = 100.0
+    log_bot_p = 8.39794
+    bot_t = 1000.0
+    top_t = 200.0
     p_grid = 'log'
     frac = 2
 /
@@ -65,7 +67,7 @@
 /
 
 &moisture_nml
-    moisture_scheme = 'surface'
+    moisture_scheme = 'supercrit'
     q0 = 0.001
 /
 
@@ -90,9 +92,14 @@
     reference_slp = 10000000.0
 /
 
+&supercrit_nml
+    p_sc = 1.e5
+    aqua_path='./src/AQUA'
+/
+    
 &socrates_rad_nml
-    lw_spectral_filename = '../../PROTEUS/AEOLUS/spectral_files/Reach/Reach'
-    sw_spectral_filename = '../../PROTEUS/AEOLUS/spectral_files/Reach/Reach'
+    lw_spectral_filename = '/home/i/innes/spec_file_supercrit/test/supercrit/sp_318_supercrit_tidy'
+    sw_spectral_filename = '/home/i/innes/spec_file_supercrit/test/supercrit/sp_318_supercrit_tidy'
     inc_h2 = .true.
     inc_co2 = .false.
     inc_h2o = .true.

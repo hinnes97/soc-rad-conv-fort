@@ -1,12 +1,14 @@
 module timestep
   use params, only: dp, Nt, nf, ne, const, Finc, Fint, q0, surface, A_s, sb, surf_const, &
        moisture_scheme, sb, grav, cpair, del_time, accelerate, cp_s, rho_s, rdgas, &
-       depth, U, C_d, conv_switch, sensible_heat, nqr
+       depth, U, C_d, conv_switch, sensible_heat
   use flux_mod, only: get_fluxes
   use utils, only: linear_log_interp, bezier_interp
   use convection, only: dry_adjust
   use condense, only : rain_out, cold_trap,q_sat, dew_point_T, set_q
   use adjust_mod, only : new_adjust
+  use supercrit_adjust, only: adjustment
+  use atmosphere, only : nqt, nqr
   use io, only: dump_data
   implicit none
 
@@ -76,7 +78,7 @@ contains
     !====================================================================================
 
     ! TODO: move to namelist
-    print_interval = 100
+    print_interval = 1
     output_interval  = 100
     
     ! Initialise some of the variables
@@ -92,11 +94,11 @@ contains
        delp(i) = pe(i+1) - pe(i)
     enddo
 
-    if (moisture_scheme /= 'none') call set_q(pf,Tf, q,ktrop)
+
+    if (moisture_scheme /= 'none' .and. moisture_scheme /= 'supercrit') call set_q(pf,Tf, q,ktrop)
 
     call get_fluxes(nf, ne, Tf, pf, Te, pe, &
           net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
-
 
     call print_header
     
@@ -217,7 +219,12 @@ contains
 
     ! Calls radiation driver
     call get_fluxes(nf, ne, Tf, pf, Te, pe, &
-            net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
+         net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
+    do i=1,ne
+       write(*,*) pe(i), Te(i), fup(i), fdn(i), s_dn(i), s_up(i)
+    enddo
+    stop
+
 
     ! Step half forwards
        do i=1,nf
@@ -278,7 +285,8 @@ contains
                 Ts = Ts + dT_surf
 
                 ! If surface is liquid water, then temperature cannot exceed temperature
-                ! where psat(T)>p_s. 
+! where psat(T)>p_s.
+                write(*,*) 'inside here', moisture_scheme, surface
                 call dew_point_T(pe(ne), dew_pt)
                 if (Ts .gt. dew_pt) then
                    Ts = dew_pt
@@ -312,7 +320,8 @@ contains
                 Ts = Ts + dT_surf
 
                 ! If surface is liquid water, then temperature cannot exceed temperature
-                ! where psat(T)>p_s. 
+! where psat(T)>p_s.
+                write(*,*) 'inside here 2', moisture_scheme, surface
                 call dew_point_T(pe(ne), dew_pt)
                 if (Ts .gt. dew_pt) then
                    Ts = dew_pt
@@ -339,14 +348,21 @@ contains
 
        ! Convective adjustment happens here
        if (conv_switch) then
-          if (moisture_scheme /= 'none') then
+          if (moisture_scheme /= 'none' .and. moisture_scheme /= 'supercrit') then
+             write(*,*) 'before new_adjust'
+             write(*,*) moisture_scheme, surface
              call set_q(pf,Tf, q, ktrop)
              call new_adjust(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
+          else if (moisture_scheme == 'supercrit' ) then
+             write(*,*) 'before supercrit adjust'
+             !call adjustment(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
           endif
+          
        endif
 
-       ! Ensure final state is at saturation
-       if (moisture_scheme /='none') call set_q(pf,Tf, q, ktrop)
+! Ensure final state is at saturation
+       write(*,*) 'helloworld', moisture_scheme, surface
+       if (moisture_scheme /='none' .and. moisture_scheme /='supercrit') call set_q(pf,Tf, q, ktrop)
        
 
        ! Interpolate convective adjustment to cell edges
@@ -357,7 +373,7 @@ contains
        else
           Ts = Te(ne)
        endif
-    
+       write(*,*) 'end of single step------------------------------'
      end subroutine single_step
 
      subroutine check_convergence(net_F, sens, Tf, pe,dry_mask, &
@@ -642,7 +658,7 @@ contains
     real(dp), intent(in) :: Ts ! Surface temperature
 
     real(dp), intent(in) :: Tf(nf)
-    real(dp), intent(in) :: q(nf,nqr)
+    real(dp), intent(in) :: q(nf,nqt)
     real(dp), intent(in) :: pf(nf)
     
     logical, intent(in) :: dry_mask(nf)

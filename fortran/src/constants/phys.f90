@@ -1,4 +1,6 @@
 MODULE phys
+  use params, only : dp
+  
   IMPLICIT NONE
   real, parameter :: pi = 4.0 * atan(1.0)
 !-------------Basic physical constants-------------------
@@ -51,6 +53,9 @@ REAL , PARAMETER :: Rstar = 1000*k*N_avogadro   !Universal gas constant
      real :: rho_s
 ! SOCRATES index
      integer :: soc_index
+! Abundance data(is this good practice?)
+     real(dp), dimension(:), allocatable :: q
+     
   end type gas
 
   
@@ -64,6 +69,7 @@ REAL , PARAMETER :: Rstar = 1000*k*N_avogadro   !Universal gas constant
   type(gas) :: He
   type(gas) :: NH3
   type(gas) :: HCN
+  type(gas) :: C2H6
   type(gas) :: Earth_air
   type(gas) :: H2He_solar
 
@@ -88,6 +94,7 @@ contains
   H2O%rho_l_tp = 9.998700E+02
   H2O%rho_s    = 9.170000E+02
   H2O%soc_index = 1
+  
   
   ! CH4
 
@@ -259,6 +266,24 @@ contains
   HCN%rho_l_tp = 0
   HCN%rho_s    = 0
   HCN%soc_index = 35
+
+! C2H6
+  C2H6%mmw      = 30
+  C2H6%Rgas     = Rstar/C2H6%mmw
+  C2H6%cp       = 1.750E+03
+  C2H6%tp_T     = 91.
+  C2H6%tp_P     = 1.1
+  C2H6%crit_T   = 305.3
+  C2H6%crit_P   = 49.
+  C2H6%L_vap_tp = 0
+  C2H6%L_vap_bp = 5.1e5
+  C2H6%L_fus    = 1.94e4
+  C2H6%L_sub    = 6.83e5
+  C2H6%gamma    = 1.187
+  C2H6%rho_l_bp = 0
+  C2H6%rho_l_tp = 0
+  C2H6%rho_s    = 0
+  C2H6%soc_index = 46
   
   Earth_air%cp = 1004
   Earth_air%mmw = 28.97

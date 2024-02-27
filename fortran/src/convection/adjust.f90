@@ -3,10 +3,10 @@
 module adjust_mod
   
   use phys, only : H2O, H2He_solar, Rstar
-  use params, only : dp, Finc, inhibited, accelerate, nqr
+  use params, only : dp, Finc, inhibited, accelerate
   use condense, only: q_sat, cold_trap, dew_point_T
   use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
-  use atmosphere, only : mmw_dry, cp_dry
+  use atmosphere, only : mmw_dry, cp_dry, nqr, nqt
   implicit none
 
 contains
@@ -59,7 +59,7 @@ contains
     integer, parameter       :: N_iter = 1000 ! Number of up-down iterations
     
     real(dp) :: pfact,  qcrit,temp
-    real(dp) :: qsats(size(p),nqr), qcrits(size(p))
+    real(dp) :: qsats(size(p),nqt), qcrits(size(p))
 
     real(dp) :: grad_check(size(p)), grad_true(size(p))
 
