@@ -8,7 +8,7 @@
 
 &initialisation_nml
     log_top_p = 0.0
-    log_bot_p = 8.39794
+    log_bot_p = 7
     bot_t = 1000.0
     top_t = 200.0
     p_grid = 'log'
@@ -48,7 +48,7 @@
 
 &radiation_nml
     finc = 200
-    fint = 0.0
+    fint = 3.72
 /
 
 &band_grey_nml
@@ -98,12 +98,16 @@
 /
     
 &socrates_rad_nml
-    lw_spectral_filename = '/home/i/innes/spec_file_supercrit/test/supercrit/sp_318_supercrit_tidy'
-    sw_spectral_filename = '/home/i/innes/spec_file_supercrit/test/supercrit/sp_318_supercrit_tidy'
-    inc_h2 = .true.
-    inc_co2 = .false.
-    inc_h2o = .true.
-    inc_ch4 = .true.
-    inc_he = .true.
-    rayleigh_sw = .false.
+    spectral_filename = '/home/i/innes/spec_file_supercrit/test/supercrit/sp_318_supercrit_tidy'
+    l_rayleigh = .true.
+    l_h2o = .true.
+    l_h2 = .true.
+    l_he = .true.
+    l_hcn = .true.
+    l_c2h6 = .true.
+    l_nh3 = .true.
+    l_co = .true.
+    l_co2 = .true.
+    l_ch4 = .true.
+    i_solver = 13
 /

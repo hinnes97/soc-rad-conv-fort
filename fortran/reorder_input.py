@@ -27,7 +27,7 @@ for f in files:
     print(dic.keys())
     for spec in order:
         if spec in dic:
-            reordered[:,i]=dic[spec]
+            reordered[:,i]=np.flip(dic[spec])
             print(spec)
             i+=1
 

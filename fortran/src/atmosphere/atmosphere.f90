@@ -22,6 +22,8 @@ contains
     
     integer :: f_unit, ierr, i
 
+    call init_gas_data
+    
 ! Open file
     open(newunit=f_unit, iostat=ierr, action='read', file=soc_index_file)
     if (ierr .ne. 0) then
@@ -35,7 +37,7 @@ contains
     read(f_unit,*) th_indices(1:nqt)
     
     close(f_unit)
-    soc_indices(1:nqr) = soc_indices(1:nqr)
+    soc_indices(1:nqr) = th_indices(1:nqr)
     
 
     do i=1,nqt
@@ -111,12 +113,15 @@ contains
            i=max(min(i,ndat-1),1)
            do n=1,nqt
               ! Find nearest index in data
-              if (n .eq. 1) write(*,*), k, p(k), pdat(i), pdat(i+1)
+              !if (n .eq. 1) write(*,*), k, p(k), pdat(i), pdat(i+1)
               call linear_log_interp(p(k), pdat(i), pdat(i+1), qdat(i,n), qdat(i+1,n), q(k,n))
            enddo
         endif
      enddo
 
+     do k=1,npz
+        write(*,*) p(k), q(k,1), q(k,2), q(k,3)
+     enddo
 ! Save the original abundance of species
      q_orig = q(:,:)
 ! Find the mmw and heat capacity of the dry component
@@ -165,17 +170,17 @@ contains
 
   end subroutine get_dry_cp
   
-  subroutine get_mmw(q, mmw, gases)
+  subroutine get_mmw(q, mmw)
     real(dp), intent(in) :: q(nqt)
     real(dp), intent(out) :: mmw
-    type(gas),intent(in)  :: gases(nqt)
     
     integer :: i
     real(dp) ::  mmw_r
 
     mmw_r = 0.0_dp
+    
     do i=1,nqt
-       mmw_r = mmw_r + q(i)/gases(i)%mmw
+       mmw_r = mmw_r + q(i)/th_gases(i)%mmw
     enddo
     mmw = 1._dp/mmw_r
     

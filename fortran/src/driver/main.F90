@@ -8,7 +8,8 @@ program main
   use atmosphere, only : read_abundances, init_atmos
   
 #ifdef SOC
-  use socrates_interface_mod, only : socrates_init
+  !use socrates_interface_mod, only : soc_init
+  use soc_init_mod, only : soc_init
 #elif defined PICKET
   use radiation_mod, only : radiation_init
 #elif defined TWOSTR
@@ -32,7 +33,8 @@ program main
   call allocate_arrays(Tf, pf, pe, Te)
 
 #ifdef SOC
-  call socrates_init()
+  !call socrates_init()
+  call soc_init(nf, ne)
 #elif defined PICKET
   call radiation_init(nf)
 #elif defined TWOSTR

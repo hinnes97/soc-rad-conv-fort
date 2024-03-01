@@ -53,8 +53,6 @@ REAL , PARAMETER :: Rstar = 1000*k*N_avogadro   !Universal gas constant
      real :: rho_s
 ! SOCRATES index
      integer :: soc_index
-! Abundance data(is this good practice?)
-     real(dp), dimension(:), allocatable :: q
      
   end type gas
 

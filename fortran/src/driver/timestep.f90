@@ -46,7 +46,7 @@ contains
     ! Work variables
     !====================================================================================
     
-    integer :: i,j
+    integer :: i,j,k
     integer :: ktrop 
     integer :: output_interval
     integer :: print_interval
@@ -96,8 +96,9 @@ contains
 
 
     if (moisture_scheme /= 'none' .and. moisture_scheme /= 'supercrit') call set_q(pf,Tf, q,ktrop)
+    call interp_to_edges(pf, pe, Tf, Te)
 
-    call get_fluxes(nf, ne, Tf, pf, Te, pe, &
+    call get_fluxes(nf, ne, Tf, pf, Te, pe, delp, &
           net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
 
     call print_header
@@ -218,12 +219,8 @@ contains
     endif
 
     ! Calls radiation driver
-    call get_fluxes(nf, ne, Tf, pf, Te, pe, &
+    call get_fluxes(nf, ne, Tf, pf, Te, pe, delp, &
          net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
-    do i=1,ne
-       write(*,*) pe(i), Te(i), fup(i), fdn(i), s_dn(i), s_up(i)
-    enddo
-    stop
 
 
     ! Step half forwards
@@ -253,10 +250,9 @@ contains
        endif
     
        ! Call radiation scheme at half timestep
-       call get_fluxes(nf, ne, Tf_half, pf, Te, pe,  &
+       call get_fluxes(nf, ne, Tf_half, pf, Te, pe, delp,  &
             net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
 
-    
        if (.not. surface) then 
           net_F(ne) = Fint
        endif
@@ -286,7 +282,6 @@ contains
 
                 ! If surface is liquid water, then temperature cannot exceed temperature
 ! where psat(T)>p_s.
-                write(*,*) 'inside here', moisture_scheme, surface
                 call dew_point_T(pe(ne), dew_pt)
                 if (Ts .gt. dew_pt) then
                    Ts = dew_pt
@@ -321,7 +316,6 @@ contains
 
                 ! If surface is liquid water, then temperature cannot exceed temperature
 ! where psat(T)>p_s.
-                write(*,*) 'inside here 2', moisture_scheme, surface
                 call dew_point_T(pe(ne), dew_pt)
                 if (Ts .gt. dew_pt) then
                    Ts = dew_pt
@@ -350,18 +344,15 @@ contains
        if (conv_switch) then
           if (moisture_scheme /= 'none' .and. moisture_scheme /= 'supercrit') then
              write(*,*) 'before new_adjust'
-             write(*,*) moisture_scheme, surface
              call set_q(pf,Tf, q, ktrop)
              call new_adjust(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
           else if (moisture_scheme == 'supercrit' ) then
-             write(*,*) 'before supercrit adjust'
              !call adjustment(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
           endif
           
        endif
 
 ! Ensure final state is at saturation
-       write(*,*) 'helloworld', moisture_scheme, surface
        if (moisture_scheme /='none' .and. moisture_scheme /='supercrit') call set_q(pf,Tf, q, ktrop)
        
 
@@ -373,7 +364,6 @@ contains
        else
           Ts = Te(ne)
        endif
-       write(*,*) 'end of single step------------------------------'
      end subroutine single_step
 
      subroutine check_convergence(net_F, sens, Tf, pe,dry_mask, &

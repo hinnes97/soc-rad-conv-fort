@@ -1,9 +1,15 @@
 module flux_mod
 
-  use params, only: dp, sb, invert_grid, moist_rad, surface, semi_grey_scheme, A_s
-  
+  use params, only: dp, sb, invert_grid, moist_rad, surface, semi_grey_scheme, A_s, grav
+  use atmosphere, only : nqr, soc_indices, get_mmw, th_gases
+  use phys, only : Rstar
 #ifdef SOC
-  use socrates_interface_mod, only: run_socrates
+  !use socrates_interface_mod, only: run_socrates
+  use soc_calc_mod, only: soc_calc
+  use socrates_def_diag, only: StrDiag
+  use gas_list_pcf
+  use soc_init_mod, only : control_lw, control_sw, diag_sw, diag_lw, dimen_sw, dimen_lw
+  use rad_pcf, only : ip_solar, ip_infra_red
 #elif defined SHORT_CHAR
   use radiation_Kitzmann_noscatt, only: Kitzmann_TS_noscatt
   use toon_mod, only : toon_driver
@@ -18,11 +24,11 @@ module flux_mod
   
   implicit none
 contains
-  subroutine get_fluxes(nf, ne, Tf, pf, Te, pe, &
+  subroutine get_fluxes(nf, ne, Tf, pf, Te, pe, delp, &
        net_F, mu_s, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
     !! Input variables
     integer, intent(in) :: nf, ne                         ! Number of layers, levels (lev = lay + 1)
-    real(dp), dimension(:), intent(in) :: Tf, pf           ! Temperature [K], pressure [pa] at layers
+    real(dp), dimension(:), intent(in) :: Tf, pf, delp   ! Temperature [K], pressure [pa] at layers
     real(dp), dimension(:), intent(in) :: Te, pe           ! pressure [pa] at levels
     real(dp), intent(in) :: Finc, mu_s                        ! Incident flux [W m-2] and cosine zenith angle
     real(dp), intent(in) :: Fint                              ! Internal flux [W m-2]
@@ -33,13 +39,18 @@ contains
     real(dp), dimension(ne), intent(out) :: net_F, fup, fdn
     real(dp), intent(out) :: olr, s_dn(:), s_up(:)
 
-    integer :: i
+    integer :: i, n, k
     
 #ifdef SOC
     
-    real(dp) :: rad_lat, rad_lon, t_surf_in, albedo_in, net_surf_sw_down, surf_lw_down
-    real(dp), dimension(size(Tf)) :: q_in, temp_tend, h2_in, ch4_in, he_in
-    
+    real(dp) :: rad_lat, rad_lon, t_surf_in, albedo_in, net_surf_sw_down, surf_lw_down, test
+    real(dp), dimension(size(Tf)) :: temp_tend, mass_1d, density_1d
+    real(dp), dimension(size(Tf)) :: h2o_1d, h2_1d, he_1d, ch4_1d, co2_1d, co_1d, hcn_1d, &
+         nh3_1d, c2h6_1d, n2_1d
+    real(dp), dimension(1) :: mu_s_arr, ts_arr, insol_arr
+    real(dp), dimension(2), target :: sup_out(1,0:nf), sdn_out(1,0:nf), fup_out(1,0:nf), fdn_out(1,0:nf)
+    !type(StrDiag) :: diag_sw
+
 #elif defined PICKET
     real(dp), dimension(3) :: gam_V, Beta_V, A_Bond
     real(dp), dimension(2) :: beta
@@ -53,7 +64,6 @@ contains
 #endif
 
 #ifdef SOC
-    
     rad_lat = 0._dp
     rad_lon = 0._dp
     !q_in = 0.001_dp*9._dp
@@ -68,25 +78,128 @@ contains
     !he_in = h2_in*0.1_dp
     !h2_in = h2_in*0.9_dp
 
-    ch4_in = 0.0_dp
-    q_in = q(:,1)
-    h2_in = 1-q(:,1)-ch4_in
+    ! ch4_in = 0.0_dp
+    ! q_in = q(:,1)
+    ! h2_in = 1-q(:,1)-ch4_in
     
-    he_in =h2_in*0.25188_dp
-    h2_in =h2_in*0.74812_dp
+    ! he_in =h2_in*0.25188_dp
+    ! h2_in =h2_in*0.74812_dp
     
     albedo_in = A_s
-    t_surf_in = Ts
 
 !    q_in = 0.2
 !    h2_in = 0.8
 !    he_in = 0.0
     !write(*,*) '-----------------------------------------------------------------------------'
-    call run_socrates(rad_lat, rad_lon, Tf, q_in, h2_in, ch4_in, he_in,t_surf_in, pf, pe, pf, pe, albedo_in, &
-         temp_tend, net_surf_sw_down, surf_lw_down, net_F, fup, fdn, s_up, s_dn)
-    olr = fup(1)
+    !call run_socrates(rad_lat, rad_lon, Tf, q_in, h2_in, ch4_in, he_in,t_surf_in, pf, pe, pf, pe, albedo_in, &
+    !     temp_tend, net_surf_sw_down, surf_lw_down, net_F, fup, fdn, s_up, s_dn)
 
+    !call calc_soc(pf, pe, Tf, Te, q, fup, fdn, s_up, s_dn, soc_indices)
+    !olr = fup(1)
+    do n = 1,nqr
+       select case(soc_indices(n))
+       !H2O
+       case(IP_h2o)
+          h2o_1d = q(:,n)
+       case(IP_h2)
+          h2_1d = q(:,n)
+       case(IP_he)
+          he_1d = q(:,n)
+       case(IP_hcn)
+          hcn_1d = q(:,n)
+       case(IP_co)
+          co_1d = q(:,n)
+       case(IP_co2)
+          co2_1d=q(:,n)
+       case(IP_nh3)
+          nh3_1d = q(:,n)
+       case(IP_c2h6)
+          c2h6_1d = q(:,n)
+       case(IP_n2)
+          n2_1d = q(:,n)
+       case(IP_ch4)
+          ch4_1d = q(:,n)
+       end select
+    enddo
+
+    do k=1,nf
+       call get_mmw(q(k,:), test)
+       mass_1d(k) = delp(k)/grav
+       density_1d(k) = pf(k) * test/Rstar/Tf(k)
+    enddo
+    mu_s_arr = mu_s
+    ts_arr = Ts
+    insol_arr = Finc/mu_s
+
+    ! h2o_1d = 0.2; h2_1d = 0.2; he_1d = 0.2; co_1d = 0.2; co2_1d = 0.2
+    ! hcn_1d = 0.0; c2h6_1d =0.0; nh3_1d = 0.0; ch4_1d = 0.0; n2_1d =0.0
+    ! SW calculation
+    diag_sw%flux_up => sup_out
+    diag_sw%flux_down => sdn_out
+
+    call soc_calc(n_profile            = 1, &
+                  n_layer              = nf, &
+                  diag                 = diag_sw, &
+                  control              = control_sw, &
+                  dimen                = dimen_sw, &
+                  p_layer_1d           = pf, &
+                  t_layer_1d           = Tf, &
+                  t_level_1d           = Te, &
+                  t_ground             = ts_arr, &
+                  mass_1d              = mass_1d, &
+                  density_1d           = density_1d, &
+                  h2o_1d               = h2o_1d, &
+                  h2_1d                = h2_1d, &
+                  he_1d                = he_1d, &
+                  ch4_1d               = ch4_1d, &
+                  co_1d                = co_1d, &
+                  co2_1d               = co2_1d,&
+                  hcn_1d               = hcn_1d,&
+                  n2_1d                = n2_1d, &
+                  c2h6_1d              = c2h6_1d, &
+                  nh3_1d               = nh3_1d, &
+                  cos_zenith_angle      = mu_s_arr, &
+                  i_source             = ip_solar, &!, &
+                  solar_irrad          = insol_arr, &
+                  l_grey_albedo        = .true., &
+                  grey_albedo          = albedo_in)
+                  
+    s_up(1:ne) = sup_out(1,0:nf)
+    s_dn(1:ne) = sdn_out(1,0:nf)
+
+    ! LW calculation
+
+    diag_lw%flux_up => fup_out
+    diag_lw%flux_down => fdn_out
+    call soc_calc(n_profile            = 1, &
+                   n_layer              = nf, &
+                   diag                 = diag_lw, &
+                   control              = control_lw, &
+                   dimen             = dimen_lw, &
+                   p_layer_1d           = pf, &
+                   t_layer_1d           = Tf, &
+                   t_level_1d           = Te, &
+                   t_ground             = ts_arr, &
+                   mass_1d              = mass_1d, &
+                   density_1d           = density_1d, &
+                   h2o_1d               = h2o_1d, &
+                   h2_1d                = h2_1d, &
+                   he_1d                = he_1d, &
+                   ch4_1d               = ch4_1d, &
+                   co_1d                = co_1d, &
+                   co2_1d               = co2_1d,&
+                   hcn_1d               = hcn_1d,&
+                   n2_1d                = n2_1d, &
+                   c2h6_1d              = c2h6_1d, &
+                   nh3_1d               = nh3_1d, &
+                   cos_zenith_angle     = mu_s_arr, &
+                   i_source             = ip_infra_red)
     
+    fup(1:ne) = fup_out(1,0:nf)
+    fdn(1:ne) = fdn_out(1,0:nf)
+
+    net_F = fup + s_up - fdn - s_dn
+
 #elif defined SHORT_CHAR
 
     select case(semi_grey_scheme)
