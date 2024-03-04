@@ -10,6 +10,7 @@ module flux_mod
   use gas_list_pcf
   use soc_init_mod, only : control_lw, control_sw, diag_sw, diag_lw, dimen_sw, dimen_lw
   use rad_pcf, only : ip_solar, ip_infra_red
+  use omp_lib, only: omp_get_wtime
 #elif defined SHORT_CHAR
   use radiation_Kitzmann_noscatt, only: Kitzmann_TS_noscatt
   use toon_mod, only : toon_driver
@@ -39,7 +40,7 @@ contains
     real(dp), dimension(ne), intent(out) :: net_F, fup, fdn
     real(dp), intent(out) :: olr, s_dn(:), s_up(:)
 
-    integer :: i, n, k
+    integer :: i, n, k, tim
     
 #ifdef SOC
     
@@ -51,6 +52,7 @@ contains
     real(dp), dimension(2), target :: sup_out(1,0:nf), sdn_out(1,0:nf), fup_out(1,0:nf), fdn_out(1,0:nf)
     !type(StrDiag) :: diag_sw
 
+    real(dp) :: start, finish
 #elif defined PICKET
     real(dp), dimension(3) :: gam_V, Beta_V, A_Bond
     real(dp), dimension(2) :: beta
@@ -137,6 +139,10 @@ contains
     diag_sw%flux_up => sup_out
     diag_sw%flux_down => sdn_out
 
+    
+!    start = omp_get_wtime()
+
+!    do tim=1,10
     call soc_calc(n_profile            = 1, &
                   n_layer              = nf, &
                   diag                 = diag_sw, &
@@ -163,9 +169,14 @@ contains
                   solar_irrad          = insol_arr, &
                   l_grey_albedo        = .true., &
                   grey_albedo          = albedo_in)
-                  
     s_up(1:ne) = sup_out(1,0:nf)
     s_dn(1:ne) = sdn_out(1,0:nf)
+
+    ! open(unit=10, file='omp_tests/radout_sw.txt')
+    ! do k=1,ne
+    !    write(10,*) s_up(k), s_dn(k)
+    ! enddo
+    ! close(10)
 
     ! LW calculation
 
@@ -198,8 +209,20 @@ contains
     fup(1:ne) = fup_out(1,0:nf)
     fdn(1:ne) = fdn_out(1,0:nf)
 
+    ! open(unit=10, file='omp_tests/radout_lw.txt')
+    ! do k=1,ne
+    !    write(10,*) fup(k), fdn(k)
+    ! enddo
+    ! close(10)
+! enddo
+! finish=omp_get_wtime()
+    ! open(unit=10, file='omp_tests/timing.txt')
+    ! write(10,*) finish-start
+    ! close(10)
+    ! stop
     net_F = fup + s_up - fdn - s_dn
 
+    
 #elif defined SHORT_CHAR
 
     select case(semi_grey_scheme)

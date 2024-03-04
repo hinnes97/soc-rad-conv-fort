@@ -94,7 +94,7 @@
 
 &supercrit_nml
     p_sc = 1.e5
-    aqua_path='./src/AQUA'
+    aqua_path='./src/AQUA/Tables'
 /
     
 &socrates_rad_nml

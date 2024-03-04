@@ -15,7 +15,8 @@ list(FILTER SOC_SRC EXCLUDE REGEX "/src/interface/*")
 add_library(socrates SHARED ${SOC_SRC})
 
 target_link_libraries(socrates ${NETCDF_LIBRARIES_F90}
-  ${HDF5_LIBRARIES})
+  ${HDF5_LIBRARIES}
+  OpenMP::OpenMP_Fortran)
   
 
  

@@ -431,6 +431,7 @@ contains
     !   Loop variables
 
     integer :: ierr = i_normal
+    integer :: k
     character (len=errormessagelength) :: cmessage
     character (len=*), parameter :: RoutineName = 'RUNES'
 
@@ -676,7 +677,8 @@ call set_aer(aer, control, dimen, spec, &
      l_invert, l_profile_last)
 ! DEPENDS ON: radiance_calc
 call radiance_calc(control, dimen, spec, atm, cld, aer, bound, radout)
- call set_diag(diag, &
+
+call set_diag(diag, &
    control, dimen, spec, atm, cld, mcica, aer, bound, radout, &
    n_profile, n_layer, &
    profile_list           = profile_list, &

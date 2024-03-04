@@ -5,6 +5,8 @@ PROJECT(soc-rad-conv-fort Fortran)
 find_package(HDF5 COMPONENTS Fortran HL)
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
+# Find OpenMP
+find_package(OpenMP)
 
 # Set fortran flags, change this if you want
 INCLUDE(${CMAKE_MODULE_PATH}/SetFortranFlags.cmake)
@@ -78,5 +80,6 @@ target_link_libraries(${EXE}
   socrates
   ${NETCDF_LIBRARIES_F90}
   ${HDF5_LIBRARIES}
+  OpenMP::OpenMP_Fortran
   )
 

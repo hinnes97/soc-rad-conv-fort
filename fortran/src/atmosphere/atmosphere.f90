@@ -1,7 +1,8 @@
 module atmosphere
 
-  use params, only: soc_index_file, dp, p_sc, abundance_file
+  use params, only: soc_index_file, dp, p_sc, abundance_file, moisture_scheme
   use utils, only: linear_log_interp
+  use supercrit_adjust, only : aqua_init
   use phys
   implicit none
 
@@ -69,6 +70,8 @@ contains
     enddo
 
     call read_abundances(p,q)
+
+    if (moisture_scheme == 'supercrit') call aqua_init
   end subroutine init_atmos
   
    subroutine read_abundances(p, q)

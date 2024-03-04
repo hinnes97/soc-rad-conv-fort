@@ -57,9 +57,11 @@ contains
 
        do k=npz-1,max(ktrop,1), -1
           if (p(k) .gt. p_sc) then
-! Do adjustment using the adiabat from AQUA
+             ! Do adjustment using the adiabat from AQUA
              eos_pt =  interpolate_aqua_pt(p(k), T(k))
              grad(k) = eos_pt(2)
+             pfact =exp(grad(k)*log(p(k)/p(k+1)))
+             condition = ( (T(k) - T(k+1)*pfact*(1+delta)) .lt. 0 )
           else
 ! Do dry/moist adjustment based on whether there is condensation (can also check composition too)
              if (q(k+1,1) .gt. qsats(k+1,1)-1.e-10) then
