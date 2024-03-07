@@ -122,9 +122,7 @@ contains
         endif
      enddo
 
-     do k=1,npz
-        write(*,*) p(k), q(k,1), q(k,2), q(k,3)
-     enddo
+
 ! Save the original abundance of species
      q_orig = q(:,:)
 ! Find the mmw and heat capacity of the dry component
@@ -132,7 +130,7 @@ contains
         call get_dry_mmw(q(k,1:nqt), mmw_dry(k), th_gases)
         call get_dry_cp(q(k,1:nqt), cp_dry(k), th_gases)
      enddo
-
+     
    end subroutine read_abundances
 
   subroutine get_dry_mmw(q, mmw, gases)

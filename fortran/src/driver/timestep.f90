@@ -78,7 +78,7 @@ contains
     !====================================================================================
 
     ! TODO: move to namelist
-    print_interval = 1
+    print_interval = 10
     output_interval  = 100
     
     ! Initialise some of the variables
@@ -347,7 +347,7 @@ contains
              call set_q(pf,Tf, q, ktrop)
              call new_adjust(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
           else if (moisture_scheme == 'supercrit' ) then
-             call adjustment(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
+             !call adjustment(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
           endif
           
        endif

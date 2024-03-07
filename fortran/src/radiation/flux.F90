@@ -33,7 +33,7 @@ contains
     real(dp), dimension(:), intent(in) :: Te, pe           ! pressure [pa] at levels
     real(dp), intent(in) :: Finc, mu_s                        ! Incident flux [W m-2] and cosine zenith angle
     real(dp), intent(in) :: Fint                              ! Internal flux [W m-2]
-    real(dp), intent(in) :: q(:,:)
+    real(dp), intent(inout) :: q(:,:)
     real(dp), intent(in) :: Ts                            ! Surface temperature
     
     !! Output variables
@@ -97,7 +97,8 @@ contains
     !     temp_tend, net_surf_sw_down, surf_lw_down, net_F, fup, fdn, s_up, s_dn)
 
     !call calc_soc(pf, pe, Tf, Te, q, fup, fdn, s_up, s_dn, soc_indices)
-    !olr = fup(1)
+    !olr = fup(1) 
+    
     do n = 1,nqr
        select case(soc_indices(n))
        !H2O
@@ -140,9 +141,10 @@ contains
     diag_sw%flux_down => sdn_out
 
     
-!    start = omp_get_wtime()
+    start = omp_get_wtime()
 
 !    do tim=1,10
+    q = 1.0
     call soc_calc(n_profile            = 1, &
                   n_layer              = nf, &
                   diag                 = diag_sw, &
@@ -214,12 +216,12 @@ contains
     !    write(10,*) fup(k), fdn(k)
     ! enddo
     ! close(10)
-! enddo
-! finish=omp_get_wtime()
-    ! open(unit=10, file='omp_tests/timing.txt')
-    ! write(10,*) finish-start
-    ! close(10)
-    ! stop
+    ! enddo
+    ! finish=omp_get_wtime()
+    !  open(unit=10, file='omp_tests/timing.txt')
+    !  write(10,*) finish-start
+    !  close(10)
+    !  stop
     net_F = fup + s_up - fdn - s_dn
 
     

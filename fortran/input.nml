@@ -8,16 +8,16 @@
 
 &initialisation_nml
     log_top_p = 0.0
-    log_bot_p = 7
-    bot_t = 1000.0
-    top_t = 200.0
+    log_bot_p = 5
+    bot_t = 500
+    top_t = 250.0
     p_grid = 'log'
     frac = 2
 /
 
 &io_nml
     init_from_file = .false.
-    input_file = 'test_dir/test_F170_noconv_nomtckd.nc'
+    input_file = 'test_dir/new_soc_version'
     output_file = 'test_dir/new_soc_version'
 /
 
@@ -47,7 +47,7 @@
 /
 
 &radiation_nml
-    finc = 200
+    finc = 200.0
     fint = 3.72
 /
 
@@ -98,7 +98,7 @@
 /
     
 &socrates_rad_nml
-    spectral_filename = '/home/i/innes/spec_file_supercrit/test/supercrit/sp_318_supercrit_tidy'
+    spectral_filename = '/home/i/innes/spec_file_supercrit/test/supercrit_lowres/sp_40_supercrit_lowres_tidy'
     l_rayleigh = .true.
     l_h2o = .true.
     l_h2 = .true.

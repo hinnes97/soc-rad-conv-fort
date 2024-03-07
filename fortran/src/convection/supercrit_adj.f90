@@ -3,7 +3,7 @@ module supercrit_adjust
   use aqua_eos,   only: dim_output, load_table_pt, interpolate_aqua_pt
   use adjust_mod, only: gradient
   use condense, only: q_sat
-  use atmosphere, only : cp_dry, mmw_dry, q_orig
+  use atmosphere, only : cp_dry, mmw_dry, q_orig, th_gases, get_mmw, get_cp
   use phys, only : H2O, Rstar
   implicit none
   
@@ -34,7 +34,7 @@ contains
     integer, parameter :: N_iter=1000 ! Number of up-down iterations
     logical :: condition
 
-    real(dp) :: qsats(size(p), size(q,2)), kappa, qmin, f
+    real(dp) :: qsats(size(p), size(q,2)), kappa, qmin, f, mmw,cp
     real(dp) :: eos_pt(dim_output), qcrit, pfact, temp
     real(dp), parameter          :: delta = 0.0001 ! Small number speeds up convergence
     !==========================================================================
@@ -45,7 +45,12 @@ contains
     nqt = size(q,2)
 ! Need to check for both dry and wet cases - how did I do this in the GCM?
 
-    
+    ! write(*,*) 'before  convection'
+    ! do k=1,npz
+    !    write(*,*) p(k), T(k), q(k,1)
+    ! enddo
+    ! write(*,*) '------------------------------------------------'
+    mask = .false.
     do n=1,N_iter
        call q_sat(p, T, qsats)
        
@@ -79,8 +84,11 @@ contains
                 
              else
 ! Dry adjustment
-! Calculate dry adiabatic index
-                grad(k) = Rstar/mmw_dry(k+1)/cp_dry(k+1)
+                ! Calculate dry adiabatic index
+                call get_mmw(q(k+1,:) , mmw)
+                call get_cp(q(k+1,:), cp, th_gases)
+                
+                grad(k) = Rstar/mmw/cp
                 pfact = exp(grad(k)*log(p(k)/p(k+1)))
                 condition = ( (T(k) - T(k+1)*pfact*(1+delta)) .lt. 0 )                
              endif
@@ -120,6 +128,12 @@ contains
           endif
        enddo
     enddo
+    
+    ! write(*,*) 'after convection'
+    ! do k=1,npz
+    !    write(*,*) p(k), T(k), q(k,1)
+    ! enddo
+    ! write(*,*) '------------------------------------------------' 
     
   end subroutine adjustment
 end module supercrit_adjust

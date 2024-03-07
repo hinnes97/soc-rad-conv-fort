@@ -37,3 +37,4 @@ fortran/src/socrates/interface_old
 # Makefile
 Makefile
 
+omp_tests
