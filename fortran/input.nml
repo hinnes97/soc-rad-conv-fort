@@ -16,7 +16,7 @@
 &io_nml
     init_from_file = .false.
     input_file = 'test_dir/test_F170_noconv_nomtckd.nc'
-    output_file = 'test_dir/new_soc_version'
+    output_file = 'test_dir/old_soc_version'
 /
 
 &param_nml
@@ -40,12 +40,12 @@
 &convection_nml
     conv_scheme = 'none'
     passes = 10
-    inhibited = .true.
+    inhibited = .false.
     conv_switch = .true.
 /
 
 &radiation_nml
-    finc = 200
+    finc = 100
     fint = 0.0
 /
 
@@ -91,8 +91,8 @@
 /
 
 &socrates_rad_nml
-    lw_spectral_filename = '../../PROTEUS/AEOLUS/spectral_files/Reach/Reach'
-    sw_spectral_filename = '../../PROTEUS/AEOLUS/spectral_files/Reach/Reach'
+    lw_spectral_filename = '../../matrixrt/matrixrt/fortran/spectral_files/sp_lw_30_sub_nep_tweak'
+    sw_spectral_filename = '../../matrixrt/matrixrt/fortran/spectral_files/sp_sw_30_sub_nep_final_mstar'
     inc_h2 = .true.
     inc_co2 = .false.
     inc_h2o = .true.
