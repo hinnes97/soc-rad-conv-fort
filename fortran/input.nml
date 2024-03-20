@@ -43,12 +43,12 @@
     conv_scheme = 'none'
     passes = 10
     inhibited = .true.
-    conv_switch = .true.
+    conv_switch = .false.
 /
 
 &radiation_nml
-    finc = 200.0
-    fint = 3.72
+    finc = 100.0
+    fint = 0.0
 /
 
 &band_grey_nml

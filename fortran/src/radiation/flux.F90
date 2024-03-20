@@ -47,12 +47,13 @@ contains
     real(dp) :: rad_lat, rad_lon, t_surf_in, albedo_in, net_surf_sw_down, surf_lw_down, test
     real(dp), dimension(size(Tf)) :: temp_tend, mass_1d, density_1d
     real(dp), dimension(size(Tf)) :: h2o_1d, h2_1d, he_1d, ch4_1d, co2_1d, co_1d, hcn_1d, &
-         nh3_1d, c2h6_1d, n2_1d
+         nh3_1d, c2h6_1d, n2_1d, s_up_save, s_dn_save, fup_save, fdn_save
     real(dp), dimension(1) :: mu_s_arr, ts_arr, insol_arr
     real(dp), dimension(2), target :: sup_out(1,0:nf), sdn_out(1,0:nf), fup_out(1,0:nf), fdn_out(1,0:nf)
+    integer :: n_threads
     !type(StrDiag) :: diag_sw
 
-    real(dp) :: start, finish
+    real(dp) :: start, finish, t1, t2
 #elif defined PICKET
     real(dp), dimension(3) :: gam_V, Beta_V, A_Bond
     real(dp), dimension(2) :: beta
@@ -143,8 +144,14 @@ contains
     
     start = omp_get_wtime()
 
-!    do tim=1,10
-    q = 1.0
+    s_up = 0.0; s_dn = 0.0; fup = 0.0; fdn = 0.0
+    n_threads=1
+    do tim=1,2
+       if (tim .eq. 2) n_threads = 10
+       s_up_save = s_up
+       s_dn_save = s_dn
+       fup_save = fup
+       fdn_save = fdn
     call soc_calc(n_profile            = 1, &
                   n_layer              = nf, &
                   diag                 = diag_sw, &
@@ -170,10 +177,11 @@ contains
                   i_source             = ip_solar, &!, &
                   solar_irrad          = insol_arr, &
                   l_grey_albedo        = .true., &
-                  grey_albedo          = albedo_in)
+                  grey_albedo          = albedo_in, &
+                  n_threads = n_threads)
     s_up(1:ne) = sup_out(1,0:nf)
     s_dn(1:ne) = sdn_out(1,0:nf)
-
+    
     ! open(unit=10, file='omp_tests/radout_sw.txt')
     ! do k=1,ne
     !    write(10,*) s_up(k), s_dn(k)
@@ -206,8 +214,9 @@ contains
                    c2h6_1d              = c2h6_1d, &
                    nh3_1d               = nh3_1d, &
                    cos_zenith_angle     = mu_s_arr, &
-                   i_source             = ip_infra_red)
-    
+                   i_source             = ip_infra_red,&
+    n_threads = n_threads)
+
     fup(1:ne) = fup_out(1,0:nf)
     fdn(1:ne) = fdn_out(1,0:nf)
 
@@ -216,7 +225,14 @@ contains
     !    write(10,*) fup(k), fdn(k)
     ! enddo
     ! close(10)
-    ! enddo
+ enddo
+ open(unit=10, file='omp_tests/rad_diff.txt')
+    do k=1,ne
+       write(10,*) k, fup(k),fup_save(k), fdn(k),fdn_save(k)
+    enddo
+    write(10,*) maxval(abs(fup - fup_save)), maxval(abs(fdn -fdn_save)), &
+         maxval(abs(s_up - s_up_save)), maxval(abs(s_dn - s_dn_save))
+    stop
     ! finish=omp_get_wtime()
     !  open(unit=10, file='omp_tests/timing.txt')
     !  write(10,*) finish-start

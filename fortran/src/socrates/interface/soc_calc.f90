@@ -130,7 +130,8 @@ contains
   l_nitrate, nitrate, nitrate_1d, &
   l_twobindust_1, twobindust_1, twobindust_1_1d, &
   l_twobindust_2, twobindust_2, twobindust_2_1d, &
-  l_invert, l_profile_last, l_debug, i_profile_debug)
+  l_invert, l_profile_last, l_debug, i_profile_debug, &
+  n_threads)
 
     ! Control (LW or SW)
     type(StrCtrl), intent(inout) :: control
@@ -401,7 +402,7 @@ contains
     integer, intent(in), optional :: i_profile_debug
     !   Options for outputting debugging information
 
-
+    integer, intent(in), optional  :: n_threads
     ! Spectral data:
     !type(StrSpecData), pointer :: spec => null()
 
@@ -676,7 +677,7 @@ call set_aer(aer, control, dimen, spec, &
      l_twobindust_2, twobindust_2, twobindust_2_1d, &
      l_invert, l_profile_last)
 ! DEPENDS ON: radiance_calc
-call radiance_calc(control, dimen, spec, atm, cld, aer, bound, radout)
+call radiance_calc(control, dimen, spec, atm, cld, aer, bound, radout, n_threads)
 
 call set_diag(diag, &
    control, dimen, spec, atm, cld, mcica, aer, bound, radout, &

@@ -1,9 +1,9 @@
 module atmosphere
 
-  use params, only: soc_index_file, dp, p_sc, abundance_file, moisture_scheme
+  use params, only: soc_index_file, dp, p_sc, abundance_file, moisture_scheme,aqua_path
   use utils, only: linear_log_interp
-  use supercrit_adjust, only : aqua_init
   use phys
+  use aqua_eos, only: load_table_pt
   implicit none
 
   integer :: nqr, nqt
@@ -73,7 +73,11 @@ contains
 
     if (moisture_scheme == 'supercrit') call aqua_init
   end subroutine init_atmos
-  
+
+  subroutine aqua_init
+    call load_table_pt(aqua_path)
+  end subroutine aqua_init
+
    subroutine read_abundances(p, q)
      real(dp), intent(in) :: p(:)
      real(dp), intent(out),allocatable :: q(:,:)

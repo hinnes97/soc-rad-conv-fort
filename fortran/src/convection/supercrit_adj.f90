@@ -1,6 +1,6 @@
 module supercrit_adjust
   use params,     only: p_sc, aqua_path,dp, accelerate, Finc, inhibited
-  use aqua_eos,   only: dim_output, load_table_pt, interpolate_aqua_pt
+  use aqua_eos,   only: dim_output, interpolate_aqua_pt
   use adjust_mod, only: gradient
   use condense, only: q_sat
   use atmosphere, only : cp_dry, mmw_dry, q_orig, th_gases, get_mmw, get_cp
@@ -8,10 +8,6 @@ module supercrit_adjust
   implicit none
   
 contains
-
-  subroutine aqua_init
-    call load_table_pt(aqua_path)
-  end subroutine aqua_init
   
   subroutine adjustment(p, delp, T, q, ktrop, grad, olr, mask, tstep)
     
