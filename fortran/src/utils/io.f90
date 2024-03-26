@@ -155,7 +155,7 @@ contains
     real(dp), intent(in), dimension(ne) :: te,pe, fdn, fup, s_dn, s_up
     real(dp), intent(in) :: olr, Finc, Fint, Ts
 
-    logical, intent(in), dimension(nf) :: dry_mask
+    integer, intent(in), dimension(nf) :: dry_mask
     integer :: dummy_id, status, k,ncid
     integer :: dry_mask_dummy(nf), i
 
@@ -228,14 +228,14 @@ contains
     status = nf90_put_var(ncid, dummy_id, Ts)
     if (status /= nf90_noerr) call handle_err(status)
 
-    dry_mask_dummy = 0
-    do i=1,nf
-       if (dry_mask(i)) dry_mask_dummy(i) = 1
-    enddo
+    ! dry_mask_dummy = 0
+    ! do i=1,nf
+    !    if (dry_mask(i)) dry_mask_dummy(i) = 1
+    ! enddo
     
     status = nf90_inq_varid(ncid, "dry_mask", dummy_id)
     if (status /= nf90_noerr) call handle_err(status)
-    status = nf90_put_var(ncid, dummy_id, dry_mask_dummy)
+    status = nf90_put_var(ncid, dummy_id, dry_mask)
     if (status /= nf90_noerr) call handle_err(status)
 
     call close_file(ncid)

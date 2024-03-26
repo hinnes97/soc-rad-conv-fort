@@ -24,7 +24,9 @@ if (err!=0):
 
 nml = f90nml.read('input.nml')
 exp_name = nml['io_nml']['output_file'].split('/')[-1].split('.')[0]
-output_dir = nml['io_nml']['output_file'].split('/')[0]
+output_dir = '/'.join(nml['io_nml']['output_file'].split('/')[:-1])
+
+os.system('mkdir -p ' + output_dir)
 readme = ' '#input('Write description of experiment:\n')
 
 # Set up log file
@@ -61,4 +63,10 @@ elif proc.returncode==101:
 # Move log and readme
 os.system('mv '+ log_file + ' ' + output_dir)
 os.system('mv ' + readme_file + ' ' + output_dir)
+
+# Plot scripts
+infile = '../'+nml['io_nml']['output_file']
+outfile = '../'+'/'.join(nml['io_nml']['output_file'].split('/')[:-1]) + '/ptqf.pdf'
+os.system(f"cd plot_scripts && python plot_flux.py {infile} {outfile}")
 sys.exit(0)
+

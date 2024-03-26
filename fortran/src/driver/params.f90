@@ -39,6 +39,8 @@ module params
   character(len=100) :: soc_index_file
 ! Abundances file
   character (len=100) :: abundance_file
+! Number of omp threads
+  integer :: n_threads 
   
   ! -----------------------------------------------------------------------------
   !                           INITIALISATION
@@ -186,7 +188,7 @@ module params
   real(dp) :: p_sc
   character(len=100) :: aqua_path
   
-  namelist /control_nml/ nf, matrix_rt, surface, soc_index_file, abundance_file
+  namelist /control_nml/ nf, matrix_rt, surface, soc_index_file, abundance_file, n_threads
   namelist /initialisation_nml/ log_top_p, log_bot_p, bot_t, top_t, p_grid, frac
   namelist /io_nml/ init_from_file, input_file, output_file
   namelist /param_nml/ rdgas, grav, cpair, Rcp

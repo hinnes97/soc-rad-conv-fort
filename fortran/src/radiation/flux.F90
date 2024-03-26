@@ -1,6 +1,6 @@
 module flux_mod
 
-  use params, only: dp, sb, invert_grid, moist_rad, surface, semi_grey_scheme, A_s, grav
+  use params, only: dp, sb, invert_grid, moist_rad, surface, semi_grey_scheme, A_s, grav, n_threads
   use atmosphere, only : nqr, soc_indices, get_mmw, th_gases
   use phys, only : Rstar
 #ifdef SOC
@@ -50,10 +50,9 @@ contains
          nh3_1d, c2h6_1d, n2_1d, s_up_save, s_dn_save, fup_save, fdn_save
     real(dp), dimension(1) :: mu_s_arr, ts_arr, insol_arr
     real(dp), dimension(2), target :: sup_out(1,0:nf), sdn_out(1,0:nf), fup_out(1,0:nf), fdn_out(1,0:nf)
-    integer :: n_threads
     !type(StrDiag) :: diag_sw
 
-    real(dp) :: start, finish, t1, t2
+    
 #elif defined PICKET
     real(dp), dimension(3) :: gam_V, Beta_V, A_Bond
     real(dp), dimension(2) :: beta
@@ -142,12 +141,9 @@ contains
     diag_sw%flux_down => sdn_out
 
     
-    start = omp_get_wtime()
-
     s_up = 0.0; s_dn = 0.0; fup = 0.0; fdn = 0.0
-    n_threads=1
-    do tim=1,2
-       if (tim .eq. 2) n_threads = 10
+!    do tim=1,2
+
        s_up_save = s_up
        s_dn_save = s_dn
        fup_save = fup
@@ -182,11 +178,6 @@ contains
     s_up(1:ne) = sup_out(1,0:nf)
     s_dn(1:ne) = sdn_out(1,0:nf)
     
-    ! open(unit=10, file='omp_tests/radout_sw.txt')
-    ! do k=1,ne
-    !    write(10,*) s_up(k), s_dn(k)
-    ! enddo
-    ! close(10)
 
     ! LW calculation
 
@@ -219,27 +210,10 @@ contains
 
     fup(1:ne) = fup_out(1,0:nf)
     fdn(1:ne) = fdn_out(1,0:nf)
-
-    ! open(unit=10, file='omp_tests/radout_lw.txt')
-    ! do k=1,ne
-    !    write(10,*) fup(k), fdn(k)
-    ! enddo
-    ! close(10)
- enddo
- open(unit=10, file='omp_tests/rad_diff.txt')
-    do k=1,ne
-       write(10,*) k, fup(k),fup_save(k), fdn(k),fdn_save(k)
-    enddo
-    write(10,*) maxval(abs(fup - fup_save)), maxval(abs(fdn -fdn_save)), &
-         maxval(abs(s_up - s_up_save)), maxval(abs(s_dn - s_dn_save))
-    stop
-    ! finish=omp_get_wtime()
-    !  open(unit=10, file='omp_tests/timing.txt')
-    !  write(10,*) finish-start
-    !  close(10)
-    !  stop
+  
     net_F = fup + s_up - fdn - s_dn
 
+    olr = fup(1)
     
 #elif defined SHORT_CHAR
 

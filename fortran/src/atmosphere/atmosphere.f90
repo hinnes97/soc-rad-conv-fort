@@ -1,6 +1,6 @@
 module atmosphere
 
-  use params, only: soc_index_file, dp, p_sc, abundance_file, moisture_scheme,aqua_path
+  use params, only: soc_index_file, dp,abundance_file, moisture_scheme,aqua_path
   use utils, only: linear_log_interp
   use phys
   use aqua_eos, only: load_table_pt
@@ -111,10 +111,6 @@ contains
      
 ! Now interpolate all the qs in log space
      do k=1,npz
-        if (p(k) .gt. p_sc) then
-           q(k,1) = 1.0_dp
-           q(k,2:nqt) = 0.0_dp
-        else
            i = minloc(abs(p(k) - pdat), dim=1)
            if (p(k) .lt. pdat(i) ) i=i-1
            i=max(min(i,ndat-1),1)
@@ -123,15 +119,16 @@ contains
               !if (n .eq. 1) write(*,*), k, p(k), pdat(i), pdat(i+1)
               call linear_log_interp(p(k), pdat(i), pdat(i+1), qdat(i,n), qdat(i+1,n), q(k,n))
            enddo
-        endif
      enddo
 
 
 ! Save the original abundance of species
      q_orig = q(:,:)
 ! Find the mmw and heat capacity of the dry component
+     write(*,*) 'mmw_dry'
      do k=1,npz
         call get_dry_mmw(q(k,1:nqt), mmw_dry(k), th_gases)
+        write(*,*) k, mmw_dry(k)
         call get_dry_cp(q(k,1:nqt), cp_dry(k), th_gases)
      enddo
      
@@ -146,6 +143,7 @@ contains
     real(dp) :: mmw_r, weight
 
     mmw_r = 0.0_dp
+    weight = 0.0_dp
     do i=1,nqt
        if (gases(i)%soc_index .ne. 1) then
           mmw_r = mmw_r + q(i)/gases(i)%mmw
@@ -153,6 +151,7 @@ contains
        endif
     enddo
     mmw = 1._dp/mmw_r/weight
+    
 
   end subroutine get_dry_mmw
 

@@ -125,14 +125,14 @@ contains
        call sat_vp(T(k), psat)
        !psat = p_sat(T(k))
 !q(k) = eps*psat/p(k)/(1 + (eps - 1)*psat/p(k))
-
        if (psat .gt. p(k) .or. T(k)>H2O%crit_T) then
-          q(k,1) = 1.e20
+          q(k,1) = 100
        else
 ! 1 Always water
           eps = H2O%mmw/mmw_dry(k)
           
           q(k,1) = eps*(psat/p(k))/(1 + (eps-1)*(psat/p(k)))
+
 ! Update dry species
           do n=2,nqt
              q(k,n) = (1. - q(k,1))/(1 - q_orig(k,1)) * q_orig(k,n)
@@ -287,7 +287,9 @@ contains
     real(dp), intent(inout), dimension(:) :: T! Temperature 
     real(dp), intent(inout) :: q(:,:)
 
-    integer :: k, npz    
+    integer :: k, npz, m
+    real(dp) :: qsats(size(q,1), size(q,2))
+    real(dp) :: qmin
     !==========================================================================
     ! Main body
     !==========================================================================
@@ -307,6 +309,39 @@ contains
        if (q(ktrop,1) .gt. q0) ktrop = npz
     endif
 
+    if (moisture_scheme == 'supercrit') then
+              ! Set to saturation
+       call q_sat(p, T, qsats)
+       do k=1,npz
+          if (qsats(k,1) .gt. 10.0_dp) then
+             ! This happens above critical point or psat>p(k) - set to 1
+             q(k,1) = 1.0_dp
+          else
+             ! 
+             q(k,:)  = qsats(k,:)
+             !if (qsats(k,1) .lt. 1.e-10) write(*,*) 'q is 0', k
+             
+          endif
+          !q(k,1) = min(qsats(k,1), q_orig(k,1))
+       enddo
+
+       ! Cold trapping
+       ktrop = 1
+       qmin = 1000._dp
+       do k = npz,1,-1
+          if (q(k,1) .lt. qmin*(1.+1.e-4)) then
+             
+             qmin = q(k,1)
+          else if (p(k) .lt. 9*p(npz)/10) then
+             q(1:k,1) = qmin
+             ktrop = k+1
+             do m=1,k
+                q(m,2:) = (1. - q(m,1))/(1 - q_orig(m,1)) * q_orig(m,2:)
+             enddo
+          endif
+       enddo
+
+    endif
    end subroutine set_q
 
 

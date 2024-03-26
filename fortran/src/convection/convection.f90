@@ -9,7 +9,7 @@ contains
   subroutine dry_adjust(T, p, dry_mask)
     real(dp), dimension(:), intent(inout) :: T
     real(dp), dimension(:), intent(in) :: p
-    logical, dimension(:), intent(inout) :: dry_mask
+    integer, dimension(:), intent(inout) :: dry_mask
 
     ! Work variables
     integer :: n,k
@@ -36,12 +36,12 @@ contains
              Tbar = (dp(k)*T(k) + dp(k+1)*T(k+1))/(dp(k) + dp(k+1))
              T(k+1) = (dp(k) + dp(k+1))*Tbar/(dp(k+1) + dp(k) * pfact)
              T(k) = T(k+1)*pfact
-             dry_mask(k) = .True.
-             dry_mask(k+1) = .True.
+             dry_mask(k) = 1
+             dry_mask(k+1) = 1
 
           else
-             dry_mask(k) = .False.
-             dry_mask(k+1) = .False.
+             dry_mask(k) = 0
+             dry_mask(k+1) = 0
           endif
        end do
 
@@ -53,11 +53,11 @@ contains
              Tbar = (dp(k)*T(k) + dp(k+1)*T(k+1))/(dp(k) + dp(k+1))
              T(k+1) = (dp(k) + dp(k+1))*Tbar/(dp(k+1) + dp(k) * pfact)
              T(k) = T(k+1)*pfact
-             dry_mask(k) = .True.
-             dry_mask(k+1) = .True.
+             dry_mask(k) = 1
+             dry_mask(k+1) = 1
           else
-             dry_mask(k) = .False.
-             dry_mask(k+1) = .False.
+             dry_mask(k) = 0
+             dry_mask(k+1) = 0
           endif
        end do       
     end do

@@ -43,7 +43,7 @@ contains
     ! Output variables
     !==========================================================================
     integer, intent(inout) :: ktrop
-    logical, intent(out) :: mask(:)
+    integer, intent(out) :: mask(:)
     
     !==========================================================================
     ! Mixed input/output
@@ -78,7 +78,7 @@ contains
     counter = 0
     n = 1
     !    write(*,*) lbound(mask), ubound(mask)
-    mask = .false.
+    mask = 0
     quit_adjust = .false.
 
     ! Uncomment this line and line at bottom for exit at tolerance
@@ -108,7 +108,7 @@ contains
              if ((Finc/olr)**(0.01_dp) .lt. 1) then
                 T(k+1) = T(k+1)*(Finc/olr)**(0.01_dp)
              else
-                mask(k+1) = .true.
+                mask(k+1) = 1
                 cycle
              endif
              
@@ -132,8 +132,8 @@ contains
                  T(k+1) = (T(k)*delp(k) + T(k+1)*delp(k+1))/(delp(k+1) + pfact*delp(k))
                  T(k+1) = f*T(k+1)
                  T(k) = f*T(k+1)*pfact
-                 mask(k) = .true.
-                 mask(k+1) = .true.
+                 mask(k) = 1
+                 mask(k+1) = 1
               endif
            enddo !k loop
 
@@ -172,12 +172,13 @@ contains
     real(dp), intent(out) :: dlnTdlnp ! Moist adiabatic gradient
 
     real(dp),intent(inout),optional :: dlnpsat_dlnt
+    
     !==========================================================================
     ! Local variables
     !==========================================================================
 
     real(dp) :: L, psat, qsat, rsat, num, denom, temp, t2
-
+    
     !==========================================================================
     ! Main body
     !==========================================================================
@@ -211,8 +212,7 @@ contains
     temp = Rstar/mmw_d/cpd * num/denom
     
     dlnTdlnp = 1. / ((psat/p)*L*H2O%mmw/Rstar/T + (p - psat)/p/temp)
-    
-    
+ 
   end subroutine gradient
   
   subroutine sat(p,T, cpd,mmw_d,qsat, rsat, psat)
