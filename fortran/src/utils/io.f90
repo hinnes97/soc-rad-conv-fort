@@ -28,7 +28,7 @@ contains
     integer :: status
     integer :: pf_dim_id, pe_dim_id, nqr_dim_id
     integer :: tf_id, pf_id, pe_id, olr_id, tau_ir_inf_id, tau_v_inf_id, te_id, q_id
-    integer :: finc_id, fint_id, fdn_id, fup_id, sdn_id, Ts_id, sup_id, dm_id
+    integer :: finc_id, fint_id, fdn_id, fup_id, sdn_id, Ts_id, sup_id, dm_id, fturb_id
 
     ! Create output file
     status = nf90_create(path, 0, ncid)
@@ -68,6 +68,8 @@ contains
     status = nf90_def_var(ncid, "s_dn", nf90_double,pe_dim_id, sdn_id)
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_def_var(ncid, "s_up", nf90_double,pe_dim_id, sup_id)
+    if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_def_var(ncid, "turb_flux", nf90_double, pe_dim_id, fturb_id)
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_def_var(ncid, "Ts", nf90_double, Ts_id)
     if (status /= nf90_noerr) call handle_err(status)
@@ -148,11 +150,11 @@ contains
   end subroutine file_setup
 
   subroutine dump_data(file_name, nf, ne, Tf, pf, pe, olr, Finc, Fint, Te, q, fup, fdn, s_dn, &
-       s_up, Ts, dry_mask)
+       s_up, Ts, dry_mask, turb_flux)
     character(*), intent(in) :: file_name
     integer, intent(in) :: nf, ne
     real(dp), intent(in), dimension(nf) :: Tf,pf, q
-    real(dp), intent(in), dimension(ne) :: te,pe, fdn, fup, s_dn, s_up
+    real(dp), intent(in), dimension(ne) :: te,pe, fdn, fup, s_dn, s_up, turb_flux
     real(dp), intent(in) :: olr, Finc, Fint, Ts
 
     integer, intent(in), dimension(nf) :: dry_mask
@@ -221,6 +223,11 @@ contains
     status = nf90_inq_varid(ncid, "s_up", dummy_id)
     if (status /= nf90_noerr) call handle_err(status)
     status = nf90_put_var(ncid, dummy_id, s_up)
+    if (status /= nf90_noerr) call handle_err(status)
+
+    status = nf90_inq_varid(ncid, "turb_flux", dummy_id)
+    if (status /= nf90_noerr) call handle_err(status)
+    status = nf90_put_var(ncid, dummy_id, turb_flux)
     if (status /= nf90_noerr) call handle_err(status)
 
     status = nf90_inq_varid(ncid, "Ts", dummy_id)

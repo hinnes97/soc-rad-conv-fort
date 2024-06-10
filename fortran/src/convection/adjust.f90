@@ -93,7 +93,7 @@ contains
        
        do k=npz-1,max(ktrop, 1),-1
           call gradient(p(k+1),T(k+1),cp_dry(k), mmw_dry(k), grad(k), temp)
-          qcrit = 1./(1._dp - H2He_solar%mmw/H2O%mmw) /temp
+          qcrit = 1./(1._dp - mmw_dry(k)/H2O%mmw) /temp
           
           qcrits(k) = qcrit
           if (n.eq. 1 .and. tstep .gt. 1000 .and. accelerate) then

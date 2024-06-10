@@ -1,5 +1,5 @@
 &control_nml
-    nf = 100
+    nf = 300
     matrix_rt = .false.
     surface = .false.
     soc_index_file='abundances/K2_18b_2500bar_conv_socindex'
@@ -9,9 +9,9 @@
 
 &initialisation_nml
     log_top_p = 0.0
-    log_bot_p = 7
-    bot_t = 1000
-    top_t = 1000
+    log_bot_p = 6
+    bot_t = 600
+    top_t = 200
     p_grid = 'log'
     frac = 2
 /
@@ -19,7 +19,7 @@
 &io_nml
     init_from_file = .false.
     input_file = 'test_dir/new_soc_version/new_soc_version.nc'
-    output_file = 'test_dir/new_soc_version/new_soc_version.nc'
+    output_file = 'test_dir/new_soc_version/testing_diff_control_hires.nc'
 /
 
 &param_nml
@@ -41,14 +41,15 @@
 /
 
 &convection_nml
-    conv_scheme = 'none'
+    conv_scheme = 'supercrit'
     passes = 1000
     inhibited = .true.
     conv_switch = .true.
+    turb_diff = .true.
 /
 
 &radiation_nml
-    finc = 200.0
+    finc = 250.0
     fint = 0.0
 /
 

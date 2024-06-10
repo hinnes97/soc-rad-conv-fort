@@ -27,12 +27,15 @@ twin.loglog(ds.q[0,:].data, ds.pfull.data, color='C1')
 twin.set_xlabel('Specific Humidity')
 
 # Fluxes
-ax[1].loglog(ds.s_dn.data, ds.pedge.data, label='s_dn')
-ax[1].loglog(ds.s_up.data, ds.pedge.data, label='s_up')
-ax[1].loglog(ds.fdn.data, ds.pedge.data, label='f_dn')
-ax[1].loglog(ds.fup.data, ds.pedge.data, label='f_up')
+ax[1].plot(-ds.s_dn.data, ds.pedge.data, label='s_dn')
+ax[1].plot(ds.s_up.data, ds.pedge.data, label='s_up')
+ax[1].plot(-ds.fdn.data, ds.pedge.data, label='f_dn')
+ax[1].plot(ds.fup.data, ds.pedge.data, label='f_up')
+ax[1].plot(ds.turb_flux.data, ds.pedge.data, label='turb')
+ax[1].plot(ds.fup.data+ds.s_up.data - ds.fdn.data - ds.s_dn.data + ds.turb_flux.data, ds.pedge.data , label = 'net')
 ax[1].legend()
 
+ax[1].set_xscale("symlog", linthresh=0.01)
 ax[1].set_xlabel('Flux (W/m^2)')
 
 plt.savefig(args.outfile)

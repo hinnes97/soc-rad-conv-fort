@@ -1,4 +1,5 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
+set( CMAKE_VERBOSE_MAKEFILE on )
 PROJECT(soc-rad-conv-fort Fortran)
 
 #Find HDF5
@@ -15,6 +16,9 @@ INCLUDE(${CMAKE_MODULE_PATH}/SetFortranFlags.cmake)
 INCLUDE(${CMAKE_MODULE_PATH}/FindNetCDF.cmake)
 set (NETCDF_F90 "YES")
 find_package(NetCDF REQUIRED)
+
+find_library(LAPACK_LIB lapack HINTS /usr/lib/x86_64-linux-gnu)
+add_library(LAPACK_LIB SHARED IMPORTED)
 
 include_directories(${NETCDF_INCLUDES} ${HDF5_INCLUDE_DIRS})
 add_definitions(${HDF5_DEFINITIONS})
@@ -75,11 +79,10 @@ target_compile_definitions(${EXE} PUBLIC SOC)
 # Make sure socrates compiled before executable (is this necessary?)
 add_dependencies(${EXE} socrates)
 
-# Link SOCRATES library
 target_link_libraries(${EXE}
   socrates
   ${NETCDF_LIBRARIES_F90}
   ${HDF5_LIBRARIES}
-  OpenMP::OpenMP_Fortran
+  ${LAPACK_LIB}
   )
 

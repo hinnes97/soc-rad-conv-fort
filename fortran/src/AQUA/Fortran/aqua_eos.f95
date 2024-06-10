@@ -369,7 +369,7 @@ MODULE AQUA_EOS
         REAL(WP),INTENT(IN),DIMENSION(:,:,:) :: zarr          !! zarr = [nz,ny,nx]
         REAL(WP),DIMENSION(size(zarr,1))     :: BILINEAR_INTERPOLATION
 
-        INTEGER   :: nx,ny,ix0,iy0,ix1,iy1,ii
+        INTEGER   :: nx,ny,ix0,iy0,ix1,iy1,ii, w1,w2,w3,w4
         REAL(WP)  :: dx,dy
         
         ! get array length
@@ -434,6 +434,23 @@ MODULE AQUA_EOS
             enddo
         endif
 
+        !HII check to see if one of the points is in the liquid boundary - then just move
+        !to next point along
+        w1 = zarr(9,iy0,ix0); w2 = zarr(9,iy1,ix0)
+        w3 = zarr(9,iy0,ix1); w4 = zarr(9,iy1,ix1)
+
+        if ((w3 .eq. 4 .or. w1 .eq. 4) .and. w2 .eq. 3 .and. w4 .eq. 3) then
+           ! Low temp is liquid, move up in temperature space
+           iy0 = iy1
+        else if (w3 .eq. 4 .and. w4 .eq. 4 .and. w1 .eq. 3 .and. w2 .eq. 3) then
+           ! High pressure is liquid, move to lower pressure
+           ix1 = ix0
+        else if (w2 .eq. 3 .and. w1 .eq. 4 .and. w3 .eq. 4 .and. w4 .eq. 4) then
+           ! Only low pres. high temp is vapour, just use this point's data
+           ix1 = ix0
+           iy0 = iy1
+        endif
+        
         ! check if input point is in one of the input arrays
         if (ix0.eq.ix1) then
             if (iy0.eq.iy1) then

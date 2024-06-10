@@ -1,14 +1,16 @@
 module timestep
   use params, only: dp, Nt, nf, ne, const, Finc, Fint, q0, surface, A_s, sb, surf_const, &
        moisture_scheme, sb, grav, cpair, del_time, accelerate, cp_s, rho_s, rdgas, &
-       depth, U, C_d, conv_switch, sensible_heat, output_file
+       depth, U, C_d, conv_switch, sensible_heat, output_file, turb_diff
+  use phys, only : Rstar
+  use eddy_diff_mod, only: do_turb_diff, get_kzz, do_explicit_diff
   use flux_mod, only: get_fluxes
   use utils, only: linear_log_interp, bezier_interp
   use convection, only: dry_adjust
-  use condense, only : rain_out, cold_trap,q_sat, dew_point_T, set_q
+  use condense, only : rain_out, cold_trap, dew_point_T, set_q
   use adjust_mod, only : new_adjust
   use supercrit_adjust, only: adjustment
-  use atmosphere, only : nqt, nqr, q_orig
+  use atmosphere, only : nqt, nqr, q_orig, get_mmw, get_cp
   use io, only: dump_data
   implicit none
 
@@ -59,7 +61,9 @@ contains
     real(dp), dimension(ne) :: s_up   ! Upwards SW flux
     real(dp), dimension(ne) :: s_dn   ! Downwards SW flux
     real(dp), dimension(ne) :: Te     ! Edge of layer temperature
-    
+    real(dp), dimension(ne) :: turb_flux
+
+    real(dp), dimension(nf) :: flux_diff
     real(dp), dimension(nf) :: dflux ! Local convergence criterion
     real(dp), dimension(nf) :: dT    ! Change in temperature
     real(dp), dimension(nf) :: delp
@@ -87,6 +91,7 @@ contains
     dT = 0._dp
     dt_surf = 0._dp
     dry_mask = 0
+    turb_flux = 0.0_dp
     g_conv_old = -33.
 
     ! Work out what plot command is
@@ -118,12 +123,12 @@ contains
 
        ! Advance forward one timestep
        call single_step(pf, pe, delp, Tf,Te, q,Ts, dT, net_F, fup, fdn, &
-            s_up, s_dn, olr, dry_mask,  accelerate,&
+            s_up, s_dn, olr, dry_mask,  accelerate, flux_diff, turb_flux, &
             sens, j, factor, factor_surf, dT_surf, ktrop, dflux_surf, plot_command)
 
        ! Check to see whether to enter next phase of model run
        call check_convergence(net_F, sens, Tf, pe, dry_mask,&
-            stop_switch, j, dflux, Ts, dflux_surf)
+            stop_switch, j, dflux, Ts, dflux_surf, flux_diff)
 
        ! Output data to screen
        if (mod(j,print_interval) .eq. 0) then
@@ -133,7 +138,7 @@ contains
        ! Output data to file
        if (mod(j, output_interval) .eq. 0) then
           call dump_data(file_name, nf,ne,Tf,pf,pe,olr,Finc,Fint,&
-                         Te,q,fup,fdn,s_dn,s_up,Ts, dry_mask)
+                         Te,q,fup,fdn,s_dn,s_up,Ts, dry_mask, turb_flux)
        endif
 
        ! Exit if check_convergence says so
@@ -144,12 +149,12 @@ contains
     call print_final_status(j, pf, Tf, Ts, q, dry_mask)
     
     call dump_data(file_name, nf,ne,Tf,pf,pe,olr,Finc,Fint,&
-                   Te,q,fup,fdn,s_dn,s_up,Ts, dry_mask)
+                   Te,q,fup,fdn,s_dn,s_up,Ts, dry_mask, turb_flux)
 
   end subroutine step
 
   subroutine single_step(pf, pe, delp, Tf, Te,q, Ts, dT, net_F, fup, fdn,&
-                         s_up, s_dn, olr, dry_mask, accelerate, &
+                         s_up, s_dn, olr, dry_mask, accelerate, flux_diff, turb_flux, &
                          sens, tstep, factor, factor_surf, dt_surf, ktrop, dflux_surf,&
                          plot_command)
     
@@ -185,10 +190,12 @@ contains
     real(dp) :: sens        ! Sensible heat flux at surface
 
     real(dp), dimension(:), intent(inout) :: net_F  ! Net flux
+    real(dp), dimension(:), intent(inout) :: flux_diff ! Divergence of net flux
     real(dp), dimension(:), intent(inout) :: fup    ! Upwards IR flux
     real(dp), dimension(:), intent(inout) :: fdn    ! Downwards IR flux
     real(dp), dimension(:), intent(inout) :: s_up   ! Upwards SW flux
     real(dp), dimension(:), intent(inout) :: s_dn   ! Downwards SW flux
+    real(dp), dimension(:), intent(inout) :: turb_flux ! Turbulent diffusion flux
 
     real(dp), dimension(:), intent(inout) :: dT        ! Current timestep's change in temp
     real(dp), dimension(:), intent(inout) :: factor       
@@ -204,12 +211,15 @@ contains
     integer :: i, k, m
     
     real(dp), dimension(size(pf)) :: Tf_half   ! Temperature at half timestep
+    real(dp), dimension(size(pf)) :: Kzz       
     real(dp), dimension(size(pf)) :: grad      ! Adiabatic lapse rate dlnT/dlnp
-    real(dp), dimension(size(pf)) :: flux_diff ! Divergence of net flux
+    
+    real(dp), dimension(size(pf)) :: flux_diff_d ! Flux divergence for diffusion
     real(dp), dimension(size(pf), size(q,2)) :: qsats
     real(dp) :: qmin
     
     real(dp) :: time_const  ! Multiplies net flux difference to give dT
+    real(dp), dimension(size(pf)) :: time_consts, rho, mu, Tf_temp
     real(dp) :: df_surf     ! Net flux at surface
     !real(dp) :: olr         ! Outgoing longwave radiation
     real(dp) :: dew_pt      ! Dew point temperature
@@ -269,12 +279,26 @@ contains
 
     
        flux_diff(:) = 0.
+       flux_diff_d(:) = 0.
        sens = 0.
+       ! Now do turbulent diffusion of tracers and heat
+       if (turb_diff) then
+          do i=1,nf
+!         time_consts(i) = time_consts(i) * delp(i)/grav * cpair
+             call get_mmw(q(i, :), mu(i))
+             rho(i)= pf(i)*mu(i)/Tf(i)/Rstar
+          enddo
+          call get_kzz(dry_mask, Kzz)
+          call do_explicit_diff(Kzz, rho, delp, pf, Tf, q, flux_diff_d, turb_flux, tstep, dry_mask)
+       endif
+
+       
        do i=1,nf
           if (accelerate) then
              ! Accelerated timestepping
              
-             flux_diff(i) = flux_diff(i) + net_F(i+1) - net_F(i)
+             flux_diff(i) = flux_diff(i) + net_F(i+1) - net_F(i)             
+             if (turb_diff) flux_diff(i) = flux_diff(i) + flux_diff_d(i)
 
              if ((i .eq. nf) .and. surface) then
              
@@ -303,7 +327,7 @@ contains
 
              ! Require flux_diff not be zero
              time_const = factor(i) * pf(nf) / max((abs(flux_diff(i))*1000. ), 1.e-30)**0.9 / (pe(ne) - pe(nf))
-
+             time_consts(i) = time_const
 
              
           else
@@ -343,10 +367,11 @@ contains
           dT(i) = min(max(dT(i), -minmax_dT), minmax_dT)
 
           ! Step forward full
-          Tf(i) = Tf(i) + dT(i)
-
+          ! Recently add this in!
+          !Tf(i) = Tf(i) + dT(i)
+          Tf(i) = max(min(max_T, Tf(i) + dT(i)), min_T)
           ! Stop temperature going too low or high
-          Tf(i) = max(min(max_T, Tf(i)), min_T)
+          !Tf(i) = max(min(max_T, Tf(i)), min_T)
 
        end do !i=1,nf
 
@@ -361,7 +386,6 @@ contains
              call set_q(pf, Tf, q, ktrop)
              call adjustment(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
           endif
-
 
 
        endif
@@ -405,24 +429,47 @@ contains
        ! Interpolate convective adjustment to cell edges
        call interp_to_edges(pf, pe, Tf, Te)
 
+       ! Now do turbulent diffusion of tracers and heat
+       ! do i=1,nf
+       !    time_consts(i) = time_consts(i) * delp(i)/grav * cpair
+       !    call get_mmw(q(i, :), mu(i))
+       !    rho(i)= pf(i)*mu(i)/Tf(i)/Rstar
+       ! enddo
+       ! if (turb_diff) then
+       !    call get_kzz(dry_mask, Kzz)
+       !    call do_turb_diff(Kzz, time_consts, rho, Tf_temp - Tf, delp, pf, Tf, q, tstep)
+       ! else
+       !    Tf = Tf_temp
+       ! endif
+       
+       
        if (surface)  then
           Te(ne) = Ts
        else
           Ts = Te(ne)
        endif
 
+       if (mod(tstep, 500) .eq. 0) then
+          do i=1,nf
+             write(*,*) Tf(i), Te(i), flux_diff_d(i), flux_diff(i)
+          enddo
+          write(*,*) Te(ne)
+       endif
+       
+       
        if (mod(tstep, 2000) .eq. 0) then
           call system(trim(plot_command))
        endif
+
        
      end subroutine single_step
 
      subroutine check_convergence(net_F, sens, Tf, pe,dry_mask, &
-          stop_switch, tstep, dflux, Ts,dflux_surf)
+          stop_switch, tstep, dflux, Ts,dflux_surf, flux_diff)
        !====================================================================================
        ! Input variables
        !====================================================================================
-       real(dp), intent(in) :: net_F(ne) ! Net fluxes
+       real(dp), intent(in) :: net_F(ne), flux_diff(ne) ! Net fluxes
        
        real(dp), intent(in) :: sens, dflux_surf      ! Sensible heat
 
@@ -460,9 +507,9 @@ contains
              dflux(i) = 0.
           else
              if (i.eq.nf) then
-                dflux(i) = (net_F(i+1) - net_F(i) - Sens)/sb/Tf(i)**4
+                dflux(i) = flux_diff(i)/sb/Tf(i)**4
              else
-                dflux(i) = (net_F(i+1) - net_F(i))/sb/Tf(i)**4
+                dflux(i) = flux_diff(i)/sb/Tf(i)**4
              endif
 
           endif

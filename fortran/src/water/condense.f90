@@ -247,6 +247,7 @@ contains
  
        
     ! i = minloc(q(1:ktrop))
+    
     ! write(*,*) 'MINLOC', i(1), q(i(1))
     ! do j=1, i(1)
     !    q(j) = q(i(1))
@@ -310,7 +311,7 @@ contains
     endif
 
     if (moisture_scheme == 'supercrit') then
-              ! Set to saturation
+       ! Set to saturation
        call q_sat(p, T, qsats)
        do k=1,npz
           if (qsats(k,1) .gt. 10.0_dp) then
@@ -338,9 +339,9 @@ contains
              do m=1,k
                 q(m,2:) = (1. - q(m,1))/(1 - q_orig(m,1)) * q_orig(m,2:)
              enddo
+             exit
           endif
        enddo
-
     endif
    end subroutine set_q
 

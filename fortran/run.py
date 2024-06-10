@@ -66,7 +66,8 @@ os.system('mv ' + readme_file + ' ' + output_dir)
 
 # Plot scripts
 infile = '../'+nml['io_nml']['output_file']
-outfile = '../'+'/'.join(nml['io_nml']['output_file'].split('/')[:-1]) + '/ptqf.pdf'
+outfile = '../'+'/'.join(nml['io_nml']['output_file'].split('/')[:-1]) + '/'+exp_name+'_ptqf.pdf'
+
 os.system(f"cd plot_scripts && python plot_flux.py {infile} {outfile}")
 sys.exit(0)
 

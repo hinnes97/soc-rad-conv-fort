@@ -190,16 +190,16 @@ contains
     
   end subroutine get_mmw
 
-  subroutine get_cp(q, cp, gases)
+  subroutine get_cp(q, cp)
     real(dp), intent(in) :: q(nqt)
     real(dp), intent(out) :: cp
-    type(gas), intent(in) :: gases(nqt)
+    !type(gas), intent(in) :: gases(nqt)
 
     integer :: i
 
     cp = 0.0_dp
     do i=1,nqt
-       cp = cp + q(i)*gases(i)%cp
+       cp = cp + q(i)*th_gases(i)%cp
     enddo
   end subroutine get_cp
   
