@@ -30,7 +30,7 @@ module params
   ! Number of mid-levels
   integer :: nf = 100
   ! Number of edge levels (nf+1)
-  integer :: ne 
+  integer :: ne = 101
   ! Whether to do matrix method or to timestep
   logical :: matrix_rt=.false.
   ! Whether to include a surface or not
@@ -57,6 +57,8 @@ module params
   character(len=20) :: p_grid = 'log'
   ! Fraction of grid to be in hires trop
   integer :: frac = 3
+  ! Whether data read in is x data or not
+  logical  :: xdat = .false.
 
   ! -----------------------------------------------------------------------------
   !                           RADIATION
@@ -192,7 +194,7 @@ module params
   character(len=100) :: aqua_path
   
   namelist /control_nml/ nf, matrix_rt, surface, soc_index_file, abundance_file, n_threads
-  namelist /initialisation_nml/ log_top_p, log_bot_p, bot_t, top_t, p_grid, frac
+  namelist /initialisation_nml/ log_top_p, log_bot_p, bot_t, top_t, p_grid, frac, xdat
   namelist /io_nml/ init_from_file, input_file, output_file
   namelist /param_nml/ rdgas, grav, cpair, Rcp
   namelist /timestep_nml/ Nt, const, del_time, accelerate

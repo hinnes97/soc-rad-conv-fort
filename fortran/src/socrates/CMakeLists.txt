@@ -12,6 +12,8 @@ list(FILTER SOC_SRC EXCLUDE REGEX "src/illumination/*")
 list(FILTER SOC_SRC EXCLUDE REGEX "src_old/*")
 list(FILTER SOC_SRC EXCLUDE REGEX "interface_old/*")
 list(FILTER SOC_SRC EXCLUDE REGEX "/src/interface/*")
+
+message(${SOC_SRC})
 add_library(socrates SHARED ${SOC_SRC})
 
 target_link_libraries(socrates ${NETCDF_LIBRARIES_F90}

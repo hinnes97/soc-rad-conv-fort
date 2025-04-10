@@ -71,7 +71,7 @@ foreach (TMP_PATH ${SRC_FILES})
     endif ()
 endforeach(TMP_PATH)
 string(REPLACE ";" "\n" TEST "${SRC_FILES}")
-message(${TEST})
+
 # Add executable
 add_executable(${EXE} ${SRC_FILES})
 target_compile_definitions(${EXE} PUBLIC SOC)

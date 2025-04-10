@@ -16,7 +16,8 @@ conv_mask = ds.dry_mask.data>0
 
 fig, ax = plt.subplots(1,2, layout='constrained', sharey=True)
 conv_data = np.where(conv_mask, ds.Tf.data, np.nan)
-ax[0].semilogy(ds.Tf.data[conv_mask], ds.pfull.data[conv_mask], lw=5, color='C0')
+conv_p = np.where(conv_mask, ds.pfull.data, np.nan)
+ax[0].semilogy(conv_data, conv_p, lw=5, color='C0')
 ax[0].semilogy(ds.Tf.data, ds.pfull.data, color='C0')
 ax[0].set_xlabel('Temperature [K]')
 ax[0].set_ylabel('Pressure [Pa]')

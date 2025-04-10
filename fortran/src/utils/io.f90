@@ -317,4 +317,20 @@ contains
     
   end subroutine close_file
 
+  subroutine write_reala(a, name)
+    real(dp), intent(in) :: a(:)
+    character(len=100), optional :: name
+
+    integer :: n, k
+
+    n = size(a)
+
+    if (present(name)) then
+       write(*,*) '---------------', trim(name), '----------------'
+    endif
+    do k=1,n
+       write(*,*) k, a(k)
+    enddo
+  end subroutine write_reala
+  
 end module io

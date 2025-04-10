@@ -1,6 +1,6 @@
 module atmosphere
 
-  use params, only: soc_index_file, dp,abundance_file, moisture_scheme,aqua_path
+  use params, only: soc_index_file, dp,abundance_file, moisture_scheme,aqua_path, xdat
   use utils, only: linear_log_interp
   use phys
   use aqua_eos, only: load_table_pt
@@ -33,6 +33,8 @@ contains
     endif
 
     read(f_unit, *) nqr, nqt
+    writE(*,*) 'nqr, nqt'
+    write(*,*) nqr, nqt
     allocate(soc_indices(nqr), rad_gases(nqr), th_indices(nqt), th_gases(nqt))
     
     read(f_unit,*) th_indices(1:nqt)
@@ -86,13 +88,16 @@ contains
 
      real(dp), allocatable :: qdat(:,:), pdat(:)
      character(len=100) :: formt
+     real(dp) :: mu
      
      !nqt = size(q, 2)
+     write(*,*) 'before read abund'
      npz = size(p)
      allocate(mmw_dry(npz), cp_dry(npz), q_orig(npz,nqt), q(npz,nqt))
      open(newunit=unit, file=abundance_file, iostat=io)
 
      read(unit,*) ndat, test
+     write(*,*) ndat, test
 ! Check that nqt == test
      write(*,*) ndat, test, nqt
      if (test .ne. nqt) then
@@ -105,11 +110,24 @@ contains
      do k=1,ndat
         read(unit,*) pdat(k), qdat(k,:)
      enddo
-
+     
      close(unit)
 
-     
-! Now interpolate all the qs in log space
+     ! ! Convert x data into q data
+     if (xdat) then
+        do k=1,ndat
+           mu = 0.0_dp
+           do n=1,nqt
+              mu = mu + qdat(k,n)*th_gases(n)%mmw
+           enddo
+           do n=1,nqt
+              qdat(k,n) = qdat(k,n)*th_gases(n)%mmw/mu
+           enddo
+        enddo
+     endif
+
+     ! Now interpolate all the qs in log space
+
      do k=1,npz
            i = minloc(abs(p(k) - pdat), dim=1)
            if (p(k) .lt. pdat(i) ) i=i-1
@@ -122,16 +140,21 @@ contains
      enddo
 
 
-! Save the original abundance of species
-     q_orig = q(:,:)
+     ! Save the original abundance of species
+     ! Make sure q_orig adds to one
+     do k=1,npz
+        q(k,:) = q(k,:)/sum(q(k,:))
+     enddo
+     q_orig = q
+     
 ! Find the mmw and heat capacity of the dry component
-     write(*,*) 'mmw_dry'
+     !write(*,*) 'cp_dry'
      do k=1,npz
         call get_dry_mmw(q(k,1:nqt), mmw_dry(k), th_gases)
-        write(*,*) k, mmw_dry(k)
         call get_dry_cp(q(k,1:nqt), cp_dry(k), th_gases)
+        !write(*,*) cp_dry(k)
      enddo
-     
+
    end subroutine read_abundances
 
   subroutine get_dry_mmw(q, mmw, gases)
@@ -147,10 +170,10 @@ contains
     do i=1,nqt
        if (gases(i)%soc_index .ne. 1) then
           mmw_r = mmw_r + q(i)/gases(i)%mmw
-          weight = weight + q(i)
+              weight = weight + q(i)
        endif
     enddo
-    mmw = 1._dp/mmw_r/weight
+    mmw = 1._dp/mmw_r*weight
     
 
   end subroutine get_dry_mmw
@@ -164,6 +187,7 @@ contains
     real(dp) ::weight
 
     cp =  0.0_dp
+    weight = 0.0_dp
     do i=1,nqt
        if (gases(i)%soc_index .ne. 1) then
           cp = cp + q(i)*gases(i)%cp
@@ -187,6 +211,7 @@ contains
        mmw_r = mmw_r + q(i)/th_gases(i)%mmw
     enddo
     mmw = 1._dp/mmw_r
+    
     
   end subroutine get_mmw
 

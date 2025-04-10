@@ -5,6 +5,9 @@ import subprocess
 import sys
 import f90nml
 
+parser = argparse.ArgumentParser()
+parser.add_argument('-d', '--debug', action='store_true')
+args = parser.parse_args()
 # Build executable, change -r SOC for other radiation scheme as required
 
 # Only want to invoke cmake if there is a new file in the src 
@@ -12,7 +15,11 @@ os.system('find src -type f \( -path "*/socrates/src*" -prune -o -print \) > ./b
 err = os.system('cmp -s ./build/srclist_new.txt ./build/srclist.txt')
 if (err != 0):
     # Source list has changed, re-invoke cmake
-    err = os.system('cd build && cmake ..')
+    cmd = 'cd build && cmake'
+    if args.debug:
+        cmd += ' -DCMAKE_BUILD_TYPE=Debug'
+    err = os.system(cmd+' ..')
+        
     if (err != 0):
         exit('ERROR: CMake failed')
 

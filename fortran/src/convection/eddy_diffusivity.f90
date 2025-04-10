@@ -4,7 +4,8 @@ module eddy_diff_mod
   use phys, only: Rstar
   use adjust_mod, only: gradient
   use tables, only: phase_grad
-  use condense, only: q_sat
+  !use condense, only: q_sat
+  use q_sat_test, only: q_sat
   !use lapack, only: DGSTV
   implicit none
 

@@ -1,5 +1,5 @@
 &control_nml
-    nf = 300
+    nf = 100
     matrix_rt = .false.
     surface = .false.
     soc_index_file='abundances/K2_18b_2500bar_conv_socindex'
@@ -8,23 +8,24 @@
 /
 
 &initialisation_nml
-    log_top_p = 0.0
-    log_bot_p = 6
-    bot_t = 600
-    top_t = 200
+    log_top_p = 1
+    log_bot_p = 7
+    bot_t = 500
+    top_t = 180
     p_grid = 'log'
     frac = 2
+    xdat = .true.
 /
 
 &io_nml
     init_from_file = .false.
-    input_file = 'test_dir/new_soc_version/new_soc_version.nc'
-    output_file = 'test_dir/new_soc_version/testing_diff_control_hires.nc'
+    input_file = 'shami_test/test.nc'
+    output_file = 'shami_test/test_inhib.nc'
 /
 
 &param_nml
     rdgas = 3633.0
-    grav = 9.8
+    grav = 12.4
 /
 
 &timestep_nml
@@ -41,15 +42,15 @@
 /
 
 &convection_nml
-    conv_scheme = 'supercrit'
+    conv_scheme = 'none'
     passes = 1000
-    inhibited = .true.
+    inhibited = .false.
     conv_switch = .true.
-    turb_diff = .true.
+    turb_diff = .false.
 /
 
 &radiation_nml
-    finc = 250.0
+    finc = 200.0
     fint = 0.0
 /
 
@@ -69,8 +70,8 @@
 /
 
 &moisture_nml
-    moisture_scheme = 'supercrit'
-    q0 = 0.001
+    moisture_scheme = 'deep'
+    q0 = 0.5
 /
 
 &surface_nml

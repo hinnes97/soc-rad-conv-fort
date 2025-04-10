@@ -1,5 +1,6 @@
 module utils
   use, intrinsic :: iso_fortran_env
+  use params, only: nf,ne
   implicit none
 
   integer, parameter :: dp = real64
@@ -226,5 +227,62 @@ contains
 
   end subroutine bezier_interp
 
-  
+  subroutine interp_to_edges(pf, pe, Tf, Te)
+    !====================================================================================
+    ! Description
+    !====================================================================================
+    !
+    ! Interpolate temperature to edge of layers
+    !
+    !====================================================================================
+    ! Input Variables
+    !====================================================================================
+    
+    real(dp), intent(in) :: pf(nf) ! Mid layer pressure
+    real(dp), intent(in) :: pe(ne) ! Edge level pressure
+    real(dp), intent(in) :: Tf(nf) ! Mid layer temperature
+    
+    !====================================================================================
+    ! Output Variables
+    !====================================================================================
+
+    real(dp), intent(out) :: Te(ne) ! Edge of layer temperature
+
+    !====================================================================================
+    ! Work variables
+    !====================================================================================
+
+    integer :: i
+
+    !====================================================================================
+    ! Main body
+    !====================================================================================
+
+    do i = 2, nf-1
+       call bezier_interp(pf(i-1:i+1), Tf(i-1:i+1), 3, pe(i), Te(i))
+    end do
+
+    call bezier_interp(pf(nf-2:nf), Tf(nf-2:nf), 3, pe(nf), Te(nf))
+    call linear_log_interp(pe(1), pf(1), pf(2), Tf(1), Tf(2), Te(1))
+    call linear_log_interp(pe(ne), pf(nf-1), pf(nf), Tf(nf-1), Tf(nf), Te(ne) )
+
+  end subroutine interp_to_edges
+
+  subroutine write_reala(a, name)
+    real(dp), intent(in) :: a(:)
+    character(len=100), intent(in), optional :: name
+
+    integer :: k, nk
+
+    nk = size(a)
+    write(*,*) 'in reala', nk
+    if (present(name)) then
+       write(*,*) '--------------', trim(name), '-----------------'
+    endif
+    
+    do k=1,nk
+       write(*,*) k, a(k)
+    enddo
+  end subroutine write_reala
+    
 end module utils

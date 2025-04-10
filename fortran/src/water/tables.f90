@@ -11,6 +11,9 @@ module tables
   ! Triple point of water temperature
   real(dp) :: Tc = 273.16
 
+  real(dp) :: Tcrit = 647.096
+  real(dp) :: Pcrit = 220.064e5
+  
   ! Temperature
   real(dp), parameter :: T(49) = (/273.16   , 280.79134694, 288.42269388, 296.05404082,&
        303.68538776, 311.31673469, 318.94808163, 326.57942857,&

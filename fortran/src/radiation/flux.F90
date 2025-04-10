@@ -47,7 +47,8 @@ contains
     real(dp) :: rad_lat, rad_lon, t_surf_in, albedo_in, net_surf_sw_down, surf_lw_down, test
     real(dp), dimension(size(Tf)) :: temp_tend, mass_1d, density_1d
     real(dp), dimension(size(Tf)) :: h2o_1d, h2_1d, he_1d, ch4_1d, co2_1d, co_1d, hcn_1d, &
-         nh3_1d, c2h6_1d, n2_1d, s_up_save, s_dn_save, fup_save, fdn_save
+         nh3_1d, c2h6_1d, n2_1d
+    real(dp), dimension(size(Te)) :: s_up_save, s_dn_save, fup_save, fdn_save
     real(dp), dimension(1) :: mu_s_arr, ts_arr, insol_arr
     real(dp), dimension(2), target :: sup_out(1,0:nf), sdn_out(1,0:nf), fup_out(1,0:nf), fdn_out(1,0:nf)
     !type(StrDiag) :: diag_sw
@@ -98,6 +99,16 @@ contains
 
     !call calc_soc(pf, pe, Tf, Te, q, fup, fdn, s_up, s_dn, soc_indices)
     !olr = fup(1) 
+
+    h2o_1d = 0.0
+    h2_1d = 0.0
+    he_1d = 0.0
+    hcn_1d = 0.0
+    co2_1d = 0.0
+    nh3_1d = 0.0
+    c2h6_1d = 0.0
+    n2_1d = 0.0
+    ch4_1d = 0.0
     
     do n = 1,nqr
        select case(soc_indices(n))

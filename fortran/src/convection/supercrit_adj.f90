@@ -2,7 +2,8 @@ module supercrit_adjust
   use params,     only:  aqua_path,dp, accelerate, Finc, inhibited
   use aqua_eos,   only: dim_output, interpolate_aqua_pt
   use adjust_mod, only: gradient
-  use condense, only: q_sat
+  !use condense, only: q_sat
+  use q_sat_test, only: q_sat
   use atmosphere, only : cp_dry, mmw_dry, q_orig, th_gases, get_mmw, get_cp
   use phys, only : H2O, Rstar
   implicit none

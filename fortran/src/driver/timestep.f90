@@ -7,11 +7,15 @@ module timestep
   use flux_mod, only: get_fluxes
   use utils, only: linear_log_interp, bezier_interp
   use convection, only: dry_adjust
-  use condense, only : rain_out, cold_trap, dew_point_T, set_q
+  use condense, only : rain_out, cold_trap, set_q
+  use q_sat_test, only: dew_point_T
   use adjust_mod, only : new_adjust
-  use supercrit_adjust, only: adjustment
+  use adjust_md_mod, only: new_adjust_md
+  !use supercrit_adjust, only: adjustment
   use atmosphere, only : nqt, nqr, q_orig, get_mmw, get_cp
   use io, only: dump_data
+  use eos_dry_adj, only: adjustment
+    
   implicit none
 
   ! Variables needed across subroutines across timesteps
@@ -106,14 +110,15 @@ contains
     enddo
 
 
-    if (moisture_scheme /= 'none' .and. moisture_scheme /= 'supercrit') call set_q(pf,Tf, q,ktrop)
+    if (moisture_scheme /= 'none' .and. moisture_scheme /= 'supercrit') call set_q(pf,Tf, q,ktrop, 1)
     call interp_to_edges(pf, pe, Tf, Te)
 
     call get_fluxes(nf, ne, Tf, pf, Te, pe, delp, &
           net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
 
     call print_header
-    
+
+
     do j =1,Nt
 
        ! Adapative timestepping
@@ -226,10 +231,11 @@ contains
 
     real(dp) :: minmax_dT, min_T, max_T
 
+    real(dp) :: mmws(nf), cps(nf)
+    
     minmax_dT = 5.0_dp
     min_T = 1.0_dp
     max_T = 10000._dp
-    
     ! Interpolate Tf to edges for radiation scheme
     call interp_to_edges(pf, pe, Tf, Te)
     if (surface)  then
@@ -242,7 +248,6 @@ contains
     call get_fluxes(nf, ne, Tf, pf, Te, pe, delp, &
          net_F, 1.0_dp, Finc, Fint, olr, q, Ts, fup, fdn, s_dn, s_up)
 
-
     ! Step half forwards
        do i=1,nf
           if (accelerate) then
@@ -253,9 +258,13 @@ contains
 
           dT(i) = time_const*(net_F(i+1) - net_F(i))
 
+
           ! Limit temperature increases to 5 degrees
           dT(i) = min(max(dT(i), -minmax_dT), minmax_dT)
-          
+          ! if (mod(tstep,100) .eq. 0) then
+          !    write(*,*) i, sum(q(i,:)), s_up(i), s_dn(i), fup(i)
+          ! endif
+
        end do ! i=1,nf
 
        Tf_half = Tf + 0.5_dp*dT
@@ -379,53 +388,65 @@ contains
           
        if (conv_switch) then
           if (moisture_scheme /= 'none' .and. moisture_scheme /= 'supercrit') then
-             write(*,*) 'before new_adjust'
-             call set_q(pf,Tf, q, ktrop)
-             call new_adjust(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
-          else if (moisture_scheme == 'supercrit' ) then
-             call set_q(pf, Tf, q, ktrop)
-             call adjustment(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
+             !write(*,*) 'before new_adjust'
+             
+             do k=1,nf
+                call get_cp(q(k, :), cps(k))
+                call get_mmw(q(k,:), mmws(k))
+             enddo
+             call set_q(pf,Tf, q, ktrop, tstep)
+!            call adjustment(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep,&
+!                  mmws, cps)
+             call new_adjust_md(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
+          ! else if (moisture_scheme == 'supercrit' ) then
+          !    call set_q(pf, Tf, q, ktrop)
+          !    call adjustment(pf, delp, Tf, q, ktrop, grad, olr+s_up(1), dry_mask, tstep)
           endif
 
 
        endif
 
-! ! Set to saturation
-!        call q_sat(pf, Tf, qsats)
-!        do k=1,nf
-!           if (qsats(k,1) .gt. 10.0_dp) then
-!              ! This happens above critical point or psat>p(k) - set to 1
-!              q(k,1) = 1.0_dp
-!           else
-!              ! 
-!              q(k,:)  = qsats(k,:)
-!              !if (qsats(k,1) .lt. 1.e-10) write(*,*) 'q is 0', k
+       if (mod(tstep,100) .eq. 0) then
+          do i=1,nf
+             write(*,*) i, Tf(i), q(i,1), dry_mask(i)
+          enddo
+        endif
+
+
+! Set to saturation
+
+       ! do k=1,nf
+       !    if (qsats(k,1) .gt. 10.0_dp) then
+       !       ! This happens above critical point or psat>p(k) - set to 1
+       !       q(k,1) = 1.0_dp
+       !    else
+       !       ! 
+       !       q(k,:)  = qsats(k,:)
+       !       !if (qsats(k,1) .lt. 1.e-10) write(*,*) 'q is 0', k
              
-!           endif
-!           !q(k,1) = min(qsats(k,1), q_orig(k,1))
-!        enddo
+       !    endif
+       !    !q(k,1) = min(qsats(k,1), q_orig(k,1))
+       ! enddo
 
-!        ! Cold trapping
+       ! ! Cold trapping
        
-!        qmin = 1000._dp
-!        do k = nf,1,-1
-!           if (tstep .eq. 4999) write(*,*) pf(k), q(k,1), qmin
-!           if (q(k,1) .lt. qmin*(1.+1e-4) )then
-!              qmin = q(k,1)
-!           else if (pf(k) .lt. 1.e5) then
-!              q(1:k,1) = qmin
-!              do m=1,k
-!                 q(m,2:) = (1. - q(m,1))/(1 - q_orig(m,1)) * q_orig(m,2:)
-!              enddo
-!           endif
+       ! qmin = 1000._dp
+       ! do k = nf,1,-1
+       !    if (tstep .eq. 4999) write(*,*) pf(k), q(k,1), qmin
+       !    if (q(k,1) .lt. qmin*(1.+1e-4) )then
+       !       qmin = q(k,1)
+       !    else if (pf(k) .lt. 1.e5) then
+       !       q(1:k,1) = qmin
+       !       do m=1,k
+       !          q(m,2:) = (1. - q(m,1))/(1 - q_orig(m,1)) * q_orig(m,2:)
+       !       enddo
+       !    endif
           
-!        enddo
+       ! enddo
 
 
-! Ensure final state is at saturation
-       if (moisture_scheme /='none') call set_q(pf,Tf, q, ktrop)
-       
-
+       ! Ensure final state is at saturation
+       if (moisture_scheme /='none') call set_q(pf,Tf, q, ktrop, tstep)
        ! Interpolate convective adjustment to cell edges
        call interp_to_edges(pf, pe, Tf, Te)
 
@@ -449,12 +470,12 @@ contains
           Ts = Te(ne)
        endif
 
-       if (mod(tstep, 500) .eq. 0) then
-          do i=1,nf
-             write(*,*) Tf(i), Te(i), flux_diff_d(i), flux_diff(i)
-          enddo
-          write(*,*) Te(ne)
-       endif
+       ! if (mod(tstep, 500) .eq. 0) then
+       !    do i=1,nf
+       !       write(*,*) Tf(i), Te(i), flux_diff_d(i), flux_diff(i)
+       !    enddo
+       !    write(*,*) Te(ne)
+       ! endif
        
        
        if (mod(tstep, 2000) .eq. 0) then

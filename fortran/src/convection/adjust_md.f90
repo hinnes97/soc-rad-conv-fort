@@ -1,6 +1,6 @@
 ! Hamish Innes 12/2021, University of Oxford
 
-module adjust_mod
+module adjust_md_mod
   
   use phys, only : H2O, H2He_solar, Rstar
   use params, only : dp, Finc, inhibited, accelerate, q0
@@ -8,12 +8,13 @@ module adjust_mod
   use q_sat_test, only: q_sat, dew_point_T
   use tables, only : phase_grad, lheat, satur, find_var_lin, find_var_loglin
   use atmosphere, only : mmw_dry, cp_dry, nqr, nqt
+  use adjust_mod, only: gradient
   implicit none
 
 contains
 
 
-   subroutine new_adjust(p, delp, T, q, ktrop, grad, olr, mask, tstep)
+   subroutine new_adjust_md(p, delp, T, q, ktrop, grad, olr, mask, tstep)
     !==========================================================================
     ! Description
     !==========================================================================
@@ -59,9 +60,9 @@ contains
 
     integer, parameter       :: N_iter = 1000 ! Number of up-down iterations
     
-    real(dp) :: pfact,  qcrit,temp
+    real(dp) :: pfact,  qcrit,temp, dry_pfact
     real(dp) :: qsats(size(p),nqt), qcrits(size(p))
-
+    
     real(dp) :: grad_check(size(p)), grad_true(size(p))
     real(dp) :: T_old(size(p))
 
@@ -86,7 +87,7 @@ contains
     ! Uncomment this line and line at bottom for exit at tolerance
     !do while (.not. quit_adjust .and. n .lt. N_iter)
 
-    
+
     do n=1,N_iter
        T_old = T
        grad_check = 0.0_dp
@@ -117,13 +118,14 @@ contains
              
              
           ! endif
-          if (qsats(k+1,1) .gt. q0)  then
-             cycle
-          endif
+          ! if (qsats(k+1,1) .gt. q0)  then
+          !    cycle
+          ! endif
 !       enddo
 !    enddo
     
               pfact =exp(grad(k)*log(p(k)/p(k+1)))
+              dry_pfact = exp(2./7.*log(p(k)/p(k+1)))
               
               if (inhibited) then
                  ! Do moisture inhibition
@@ -132,13 +134,23 @@ contains
                  ! Regular criterion
                  condition = ( (T(k) - T(k+1)*pfact*(1+delta)) .lt. 0 )
               endif
-              
-              if (condition .and. q(k+1,1) .gt. qsats(k+1,1) - 1.e-10) then
-                 T(k+1) = (T(k)*delp(k) + T(k+1)*delp(k+1))/(delp(k+1) + pfact*delp(k))
+
+              if (condition .and. q(k+1,1) .gt. qsats(k+1,1) - 1.e-10 .and. q(k+1,1) .lt. q0) then
+                  T(k+1) = (T(k)*delp(k) + T(k+1)*delp(k+1))/(delp(k+1) + pfact*delp(k))
+                  T(k+1) = f*T(k+1)
+                  T(k) = f*T(k+1)*pfact
+                  q(k,1) = qsats(k,1)
+                  q(k+1,1) = qsats(k+1,1)
+                  mask(k) = 1
+                  mask(k+1) = 1
+
+              else if (  (T(k) - T(k+1)*dry_pfact*(1+delta)) .lt. 0 .and. q(k+1,1) .lt. qsats(k+1,1) - 1.e-10) then
+                 ! then convection here - for now using 2./7.
+                 T(k+1) = (T(k)*delp(k) + T(k+1)*delp(k+1))/(delp(k+1) + dry_pfact*delp(k))
                  T(k+1) = f*T(k+1)
-                 T(k) = f*T(k+1)*pfact
-                 mask(k) = 1
-                 mask(k+1) = 1
+                 T(k) = f*T(k+1)*dry_pfact
+                 mask(k) = 2
+                 mask(k+1) = 2
               endif
            enddo !k loop
 
@@ -159,118 +171,16 @@ contains
               exit
            endif
         enddo ! do n=1,N_iter
-        
-  end subroutine new_adjust
 
-  subroutine gradient(p,T, cpd, mmw_d,dlnTdlnp, dlnpsat_dlnt)
-    !==========================================================================
-    ! Description
-    !==========================================================================
-    ! Calculates the moist adiabatic gradient d(log(T))/d(log(p)) as in
-    ! Ding and Pierrehumbert 2016
-    
-    !==========================================================================
-    ! Input variables
-    !==========================================================================
-    real(dp), intent(in) :: p, T !Pressure and temperature
-    real(dp), intent(in) :: cpd, mmw_d
-    !==========================================================================
-    ! Output variables
-    !==========================================================================
-    real(dp), intent(out) :: dlnTdlnp ! Moist adiabatic gradient
-
-    real(dp),intent(inout),optional :: dlnpsat_dlnt
-    
-    !==========================================================================
-    ! Local variables
-    !==========================================================================
-
-    real(dp) :: L, psat, qsat, rsat, num, denom, temp, t2
-    
-    !==========================================================================
-    ! Main body
-    !==========================================================================
-    
-    if (T .lt. 273.16) then
-      L = lheat(1)
-   else
-      call find_var_lin(T, lheat, L)
-    endif
-    !L = 2.5e6
-    call sat(p, T, cpd, mmw_d,qsat, rsat, psat)
-    
-    num   = 1 + (L*mmw_d/Rstar/T)*rsat
-    !denom = 1 + ((cp_v/cp_d) + ((L*mu_v/Rstar/T) - 1)*(L/cp_d/T) )*rsat
-    
-    ! Changed for more accurate version
-    if (T .gt. 273.16) then
-       call find_var_lin(T, phase_grad,t2)
-    else
-       L = lheat(1)
-       t2 = L*H2O%mmw/Rstar/T
-    endif
-    
-
-    if (present(dlnpsat_dlnt)) then
-       dlnpsat_dlnt = t2
-    endif
-    
-    denom = 1 + ((H2O%cp/cpd) + t2/cpd*(L/T - Rstar/H2O%mmw)  )*rsat
-
-    temp = Rstar/mmw_d/cpd * num/denom
-    
-    dlnTdlnp = 1. / ((psat/p)*L*H2O%mmw/Rstar/T + (p - psat)/p/temp)
- 
-  end subroutine gradient
-  
-  subroutine sat(p,T, cpd,mmw_d,qsat, rsat, psat)
-    !==========================================================================
-    ! Description
-    !==========================================================================
-
-    ! Calculates the saturation vapour pressure, mass mixing ratio and mass
-    ! concentration of water vapour according to simple Clausius Clapeyron
-    ! relation. Change this function to some parametrisation if more accuracy
-    ! required.
-
-    !==========================================================================
-    ! Input variables
-    !==========================================================================
-    
-    real(dp), intent(in)  :: p, T ! Pressure, temperature
-    real(dp), intent(in) :: mmw_d, cpd
-    !==========================================================================
-    ! Output variables
-    !==========================================================================
-    
-    real(dp), intent(out) :: qsat ! Mass concentration
-    real(dp), intent(out), optional :: rsat, psat ! Mass mixing ratio, sat pressure
-
-    !==========================================================================
-    ! Local variables
-    !==========================================================================
-    real(dp)    :: L, rsat_temp, eps, psat_temp
-    !==========================================================================
-    ! Main body
-    !==========================================================================
-    
-    eps = H2O%mmw/mmw_d
+        if (mod(tstep, 100) .eq. 0) then
+           write(*, *) 'adj check'
+           do k=1,npz-1
+              pfact = exp(2./7.*log(p(k)/p(k+1)))
+              write(*,*) k,  T(k) - T(k+1)*pfact
+           enddo
+        endif
+  end subroutine new_adjust_md
 
 
-    if (T .gt. 273.16) then
-       call find_var_loglin(T, satur, psat_temp)
-    else
-       L = lheat(1)
-       psat_temp = H2O%TP_P * exp(-L/Rstar*H2O%mmw * (1./T - 1./H2O%tp_t))
-    endif
-    
-    rsat_temp = psat_temp / (p-psat_temp) * eps
-    qsat = rsat_temp / (1 + rsat_temp)
 
-    if(present(psat)) psat = psat_temp
-    if(present(rsat)) rsat = rsat_temp
-
-  end subroutine sat
-
-
-end module adjust_mod
+end module adjust_md_mod
